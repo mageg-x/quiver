@@ -72,30 +72,66 @@ go run main.go
 
 #### 1. 应用管理
 ```http
-POST   /api/v1/envs/{env}/apps                    # 创建应用
-GET    /api/v1/envs/{env}/apps                    # 获取应用列表
-GET    /api/v1/envs/{env}/apps/{appId}            # 获取应用详情
-PUT    /api/v1/envs/{env}/apps/{appId}            # 更新应用
-DELETE /api/v1/envs/{env}/apps/{appId}            # 删除应用
+# 创建应用
+POST   /api/v1/envs/{env}/apps
+
+# 获取应用列表                    
+GET    /api/v1/envs/{env}/apps   
+
+# 获取应用详情                 
+GET    /api/v1/envs/{env}/apps/{app_name}  
+
+# 更新应用       
+PUT    /api/v1/envs/{env}/apps/{app_name}   
+
+# 删除应用      
+DELETE /api/v1/envs/{env}/apps/{app_name}         
 ```
 
 #### 2. 集群管理
 ```http
-POST   /api/v1/envs/{env}/apps/{appId}/clusters                    # 创建集群
-GET    /api/v1/envs/{env}/apps/{appId}/clusters                    # 获取集群列表
-GET    /api/v1/envs/{env}/apps/{appId}/clusters/{clusterName}      # 获取集群详情
-DELETE /api/v1/envs/{env}/apps/{appId}/clusters/{clusterName}      # 删除集群
+# 创建集群
+POST   /api/v1/envs/{env}/apps/{app_name}/clusters     
+
+# 获取集群列表               
+GET    /api/v1/envs/{env}/apps/{app_name}/clusters      
+
+# 获取集群详情              
+GET    /api/v1/envs/{env}/apps/{app_name}/clusters/{cluster_name}  
+
+# 删除集群   
+DELETE /api/v1/envs/{env}/apps/{app_name}/clusters/{cluster_name}     
 ```
 
 #### 3. 命名空间管理
 ```http
-POST   /api/v1/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces                          # 创建命名空间
-GET    /api/v1/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces                          # 获取命名空间列表
-GET    /api/v1/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}          # 获取命名空间详情
-DELETE /api/v1/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}          # 删除命名空间
+# 创建命名空间
+POST   /api/v1/envs/{env}/apps/{app_name}/clusters/{cluster_name}/namespaces   
+
+# 获取命名空间列表                       
+GET    /api/v1/envs/{env}/apps/{app_name}/clusters/{cluster_name}/namespaces     
+
+# 获取命名空间详情                     
+GET    /api/v1/envs/{env}/apps/{app_name}/clusters/{cluster_name}/namespaces/{namespace_name}    
+
+# 删除命名空间      
+DELETE /api/v1/envs/{env}/apps/{app_name}/clusters/{cluster_name}/namespaces/{namespace_name}          
 ```
 
-#### 4. 配置管理
+#### 4. Item管理
+```http
+# 设置一个 Key-Value 对
+POST   /api/v1/envs/{env}/apps/{app_name}/clusters/{cluster_name}/namespaces/{namespace_name}/items   
+
+# 获取一个 Key-Value                      
+GET    /api/v1/envs/{env}/apps/{app_name}/clusters/{cluster_name}/namespaces{namespace_name}/items/{key}     
+
+# 删除一个 Key-Value                    
+DELETE /api/v1/envs/{env}/apps/{app_name}/clusters/{cluster_name}/namespaces/{namespace_name}/items/{key}    
+       
+```
+
+#### 5. 配置管理
 ```http
 # 获取命名空间完整配置（支持分页和增量更新）
 GET    /api/v1/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/configs
@@ -106,10 +142,6 @@ GET    /api/v1/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces/{namesp
 # 发布命名空间配置
 POST   /api/v1/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/releases
 
-# 单个配置项操作
-GET    /api/v1/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/items/{key}
-PUT    /api/v1/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/items/{key}
-DELETE /api/v1/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/items/{key}
 ```
 
 ## 🏗️ 架构设计
@@ -217,13 +249,13 @@ kvconfig/
 
 ## 📄 许可证
 
-本项目基于 AGPL 3 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
+本项目基于 GNU General Public License v3.0 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
 
 ## 📞 联系方式
 
-- 项目主页: https://github.com/stevenrao/quiver.git
-- 问题反馈: https://github.com/stevenrao/quiver/issues
-- 邮箱: raochaoxun@gmail.com
+- 项目主页: https://github.com/mageg-x/quiver
+- 问题反馈: https://github.com/mageg-x/quiver/issues
+- 邮箱: stevenrao@me.com
 
 ## 🙏 致谢
 
