@@ -6,10 +6,10 @@
 
 - **高性能**: 基于 Fiber 框架，支持高并发请求处理
 - **分层架构**: App -> Cluster -> Namespace -> Item 四层资源管理
-- **实时推送**: 支持长轮询的配置变更通知
+- **实时推送**: 支持Http长轮询和websocket 两种方式的配置变更通知
 - **增量更新**: 支持配置的增量拉取，减少网络传输
 - **版本管理**: 完整的配置发布历史和版本管理
-- **API 文档**: 集成 Swagger 文档，支持在线调试
+- **API 文档**: 集成 Markdown 文档，支持在线查阅
 
 ## 📋 系统要求
 
@@ -39,7 +39,7 @@ cp .env.example .env
 ```bash
 # 连接 MySQL 并创建数据库
 mysql -u root -p
-CREATE DATABASE kvconfig CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE quiver CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
 ### 5. 启动服务
@@ -49,7 +49,7 @@ go run main.go
 
 服务启动后，可以通过以下地址访问：
 - API 服务: http://localhost:8080
-- Swagger 文档: http://localhost:8080/swagger/
+- API 文档: http://localhost:8080/docs/api.html
 - 健康检查: http://localhost:8080/health
 
 ## 📖 API 文档
@@ -148,7 +148,7 @@ POST   /api/v1/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces/{namesp
 
 ### 资源层级
 ```
-Environment (环境)
+Env (环境)
 └── App (应用)
     └── Cluster (集群)
         └── Namespace (命名空间)
@@ -177,7 +177,6 @@ Environment (环境)
 - 减少网络传输，提升性能
 
 #### 3. 实时通知
-- 基于 Redis Pub/Sub 的配置变更通知
 - 长轮询机制，减少客户端轮询频率
 - 支持超时控制，避免连接占用
 
@@ -190,16 +189,19 @@ Environment (环境)
 
 ### 项目结构
 ```
-kvconfig/
+quiver/
 ├── main.go              # 入口文件
+├── docs/                # 文档
 ├── config/              # 配置管理
 ├── database/            # 数据库连接
 ├── models/              # 数据模型
 ├── services/            # 业务逻辑层
-├── controllers/         # 控制器层
+├── handler/             # api接入处理层
 ├── middleware/          # 中间件
 ├── utils/               # 工具函数
-├── cache/               # 缓存管理
+├── logger/              # 日志
+├── script/              # 脚本
+├── sdk/                 # 客户端sdk
 └── routes/              # 路由定义
 ```
 
