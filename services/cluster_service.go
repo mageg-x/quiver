@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"quiver/database"
 	"quiver/logger"
 	"quiver/models"
@@ -19,17 +20,14 @@ func NewClusterService() *ClusterService {
 
 // CreateCluster 创建集群
 func (s *ClusterService) CreateCluster(env string, cluster *models.Cluster) error {
-	db := database.GetDB(env)
-
-	// 检查应用是否存在
-	var app models.App
-	err := db.Where("app_name = ?", cluster.AppName).First(&app).Error
+	ids, err := CheckACNKinDB(&env, &cluster.AppName, nil, nil, nil)
 	if err != nil {
-		logger.GetLogger("quiver").Errorf("app %s not found", app.AppName)
-		return errors.New("app not found")
+		return err
 	}
 
-	cluster.AppID = app.AppID
+	db := database.GetDB(env)
+
+	cluster.AppID = ids.AppID
 
 	// 检查集群名称是否已存在
 	var existingCluster models.Cluster
@@ -40,7 +38,7 @@ func (s *ClusterService) CreateCluster(env string, cluster *models.Cluster) erro
 	}
 
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		logger.GetLogger("quiver").Errorf("cluster create %s failed %s", app.AppName, err.Error())
+		logger.GetLogger("quiver").Errorf("cluster create %s failed %s", cluster.AppName, err.Error())
 		return err
 	}
 
@@ -50,24 +48,24 @@ func (s *ClusterService) CreateCluster(env string, cluster *models.Cluster) erro
 
 // ListCluster 获取应用下的所有集群
 func (s *ClusterService) ListCluster(env string, appName string, page, size int) ([]models.Cluster, int64, error) {
+	ids, err := CheckACNKinDB(&env, &appName, nil, nil, nil)
+	if err != nil {
+		return nil, 0, err
+	}
+
 	// 获取对应环境的 DB 实例
 	db := database.GetDB(env)
 
 	var clusters []models.Cluster
 	var total int64
 
-	// 检查应用是否存在
-	var app models.App
-	err := db.Where("app_name = ?", appName).First(&app).Error
-	if err != nil {
-		logger.GetLogger("quiver").Errorf("app %s not found", app.AppName)
-		return nil, 0, errors.New("app not found")
-	}
+	// 构建查询条件
+	query := db.Where("app_id = ?", ids.AppID).Order("update_time DESC,id DESC")
 
-	// 先查询总数
-	if err := db.Model(&models.Cluster{}).Where("app_name = ?", appName).Count(&total).Error; err != nil {
+	// 获取总数（用于分页）
+	if err := query.Model(&models.Cluster{}).Count(&total).Error; err != nil {
 		logger.GetLogger("quiver").Errorf("failed to count clusters for app %s: %v", appName, err)
-		return nil, 0, err
+		return nil, 0, fmt.Errorf("failed to count clusters: %w", err)
 	}
 
 	// 再查询分页数据
@@ -88,10 +86,15 @@ func (s *ClusterService) ListCluster(env string, appName string, page, size int)
 
 // GetCluster 获取特定集群
 func (s *ClusterService) GetCluster(env string, appName, clusterName string) (*models.Cluster, error) {
+	ids, err := CheckACNKinDB(&env, &appName, &clusterName, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	db := database.GetDB(env)
 
 	var cluster models.Cluster
-	err := db.Where("app_name = ? AND cluster_name = ?", appName, clusterName).First(&cluster).Error
+	err = db.Where("id = ?", ids.ClusterID).First(&cluster).Error
 	if err != nil {
 		logger.GetLogger("quiver").Errorf("cluster get %s failed %s", appName, err.Error())
 		return nil, err
@@ -102,39 +105,29 @@ func (s *ClusterService) GetCluster(env string, appName, clusterName string) (*m
 
 // DeleteCluster 删除集群
 func (s *ClusterService) DeleteCluster(env string, appName, clusterName string) error {
-	db := database.GetDB(env)
-
-	// 先检查集群是否存在
-	var cluster models.Cluster
-	err := db.Where("app_name = ? AND cluster_name = ?", appName, clusterName).First(&cluster).Error
+	ids, err := CheckACNKinDB(&env, &appName, &clusterName, nil, nil)
 	if err != nil {
-		logger.GetLogger("quiver").Errorf("cluster delete %s failed %s", appName, err.Error())
-		return errors.New("cluster not found")
+		return err
 	}
+	db := database.GetDB(env)
 
 	return db.Transaction(func(tx *gorm.DB) error {
 		// 更新  Item 记录的 deleted 字段
-		itemResult := tx.Model(&models.Item{}).Where("cluster_id = ?", cluster.ClusterID).Update("deleted", 1)
-		if itemResult.Error != nil {
-			logger.GetLogger("quiver").Errorf("update items deleted for cluster %s failed %s", clusterName, itemResult.Error)
-			return itemResult.Error
-		}
-		if itemResult.RowsAffected == 0 {
-			logger.GetLogger("quiver").Warnf("no items found for cluster %s", cluster.ClusterName)
+		err := BulkMarkDeleted[models.Item](tx, map[string]interface{}{"cluster_id": ids.ClusterID})
+		if err != nil {
+			logger.GetLogger("quiver").Errorf("update items deleted for cluster %s failed %s", clusterName, err)
+			return err
 		}
 
 		// 更新与  ItemRelease 记录的 deleted 字段
-		itemReleaseResult := tx.Model(&models.ItemRelease{}).Where("cluster_id = ?", cluster.ClusterID).Update("deleted", 1)
-		if itemReleaseResult.Error != nil {
-			logger.GetLogger("quiver").Errorf("update items release deleted for cluster %s failed %s", clusterName, itemReleaseResult.Error)
-			return itemReleaseResult.Error
-		}
-		if itemReleaseResult.RowsAffected == 0 {
-			logger.GetLogger("quiver").Warnf("no items releases found for cluster %s", clusterName)
+		err = BulkMarkDeleted[models.ItemRelease](tx, map[string]interface{}{"cluster_id": ids.ClusterID})
+		if err != nil {
+			logger.GetLogger("quiver").Errorf("update items release deleted for cluster %s failed %s", clusterName, err)
+			return err
 		}
 
 		// 删除集群
-		result := tx.Where("app_name = ? AND cluster_name = ?", appName, clusterName).Delete(&models.Cluster{})
+		result := tx.Where("id = ?", ids.ClusterID).Delete(&models.Cluster{})
 		if result.Error != nil {
 			logger.GetLogger("quiver").Errorf("cluster delete %s failed %s", appName, result.Error.Error())
 			return result.Error

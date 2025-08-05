@@ -3,12 +3,12 @@
 -- 适用于 MySQL 8+
 
 -- 如果数据库已存在，可选择删除后重建（生产环境慎用）
-DROP DATABASE IF EXISTS quiver_pro;
-CREATE DATABASE quiver_pro CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE quiver_pro;
+-- DROP DATABASE IF EXISTS quiver_pro;
+-- CREATE DATABASE quiver_pro CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE quiver;
 
 -- 用户表
-CREATE TABLE user
+CREATE TABLE IF NOT EXISTS user
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_name   VARCHAR(128) NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE user
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 应用表
-CREATE TABLE app
+CREATE TABLE IF NOT EXISTS app
 (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
     app_name    VARCHAR(128) NOT NULL,
@@ -38,7 +38,7 @@ CREATE TABLE app
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 集群表
-CREATE TABLE cluster
+CREATE TABLE IF NOT EXISTS cluster
 (
     id           BIGINT AUTO_INCREMENT PRIMARY KEY,
     app_id       BIGINT  NOT NULL,
@@ -60,7 +60,7 @@ CREATE TABLE cluster
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 命名空间表
-CREATE TABLE namespace
+CREATE TABLE IF NOT EXISTS namespace
 (
     id             BIGINT AUTO_INCREMENT PRIMARY KEY,
     namespace_name VARCHAR(128) NOT NULL,
@@ -88,34 +88,33 @@ CREATE TABLE namespace
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 配置项表
-CREATE TABLE item
-(
+CREATE TABLE IF NOT EXISTS item (
     id             BIGINT AUTO_INCREMENT PRIMARY KEY,
     app_id         BIGINT NOT NULL,
     cluster_id     BIGINT NOT NULL,
     namespace_id   BIGINT NOT NULL,
     k              VARCHAR(255) NOT NULL,
     v              TEXT,
-    namespace_name VARCHAR(128) NOT NULL,
-    ver            BIGINT       NOT NULL DEFAULT 1,
-    create_time    DATETIME     DEFAULT CURRENT_TIMESTAMP,
-    update_time    DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    deleted        TINYINT      DEFAULT NULL,
+    kv_id          BIGINT UNSIGNED NOT NULL,   -- MurmurHash64(k,v)
 
-    -- 唯一性
-    UNIQUE KEY uk_namespace_key (namespace_id, k),
+    create_time    DATETIME DEFAULT CURRENT_TIMESTAMP,
+    update_time    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted     TINYINT  DEFAULT 0,  -- 物理删除
+    is_released    TINYINT  DEFAULT 0,  -- 是否已经发布
 
-    -- 查询加速
-    KEY            idx_app_id (app_id),
-    KEY            idx_cluster_id (cluster_id),
-    KEY            idx_namespace_id (namespace_id),
-    KEY            idx_namespace_name (namespace_name),
-    KEY            idx_k (k)
+    -- 索引
+    KEY idx_app_id (app_id),
+    KEY idx_cluster_id (cluster_id),
+    KEY idx_namespace_id (namespace_id),
+    KEY idx_k (k),
+    KEY idx_kv_id (kv_id),
+    KEY idx_is_deleted (is_deleted),
+    KEY idx_namespace_released (namespace_id, is_released)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
 -- 命名空间发布记录表
-CREATE TABLE namespace_release
+CREATE TABLE IF NOT EXISTS namespace_release
 (
     id             BIGINT AUTO_INCREMENT PRIMARY KEY,
     app_id         BIGINT NOT NULL,
@@ -147,7 +146,7 @@ CREATE TABLE namespace_release
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 发布配置项表（item 的快照）
-CREATE TABLE item_release
+CREATE TABLE IF NOT EXISTS item_release
 (
     id             BIGINT AUTO_INCREMENT PRIMARY KEY,
     app_id         BIGINT NOT NULL,
@@ -156,8 +155,8 @@ CREATE TABLE item_release
     release_id     VARCHAR(64)  NOT NULL,   -- namespace_release 的 release_id
     k              VARCHAR(255) NOT NULL,
     v              TEXT,
-    kv_id          BIGINT   NOT NULL,   -- MurmurHash64(k,v) 得到
-    deleted        TINYINT      DEFAULT NULL,
+    kv_id          BIGINT UNSIGNED  NOT NULL,   -- MurmurHash64(k,v) 得到
+    is_deleted     TINYINT  DEFAULT 0,  -- 物理删除
 
     -- 唯一性
     UNIQUE KEY uk_namespace_kv_id (namespace_id, kv_id), -- 核心去重

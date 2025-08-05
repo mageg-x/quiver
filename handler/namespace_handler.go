@@ -24,19 +24,8 @@ func NewNamespaceHandler() *NamespaceHandler {
 // CreateNamespace 创建命名空间
 func (c *NamespaceHandler) CreateNamespace(ctx *fiber.Ctx) error {
 	env := ctx.Locals("env").(string) // 类型断言
-
 	appName := ctx.Params("app_name")
 	clusterName := ctx.Params("cluster_name")
-
-	if !utils.ValidateAppName(appName) {
-		logger.GetLogger("quiver").Errorf("invalid app_name %s", appName)
-		return utils.BadRequest(ctx, "invalid app_name")
-	}
-
-	if !utils.ValidateClusterName(clusterName) {
-		logger.GetLogger("quiver").Errorf("invalid cluster_name %s", clusterName)
-		return utils.BadRequest(ctx, "invalid cluster_name")
-	}
 
 	var namespace models.Namespace
 	if err := ctx.BodyParser(&namespace); err != nil {
@@ -44,10 +33,10 @@ func (c *NamespaceHandler) CreateNamespace(ctx *fiber.Ctx) error {
 		return utils.BadRequest(ctx, "invalid request body")
 	}
 
-	// 验证命名空间名称
-	if !utils.ValidateNamespaceName(namespace.NamespaceName) {
-		logger.GetLogger("quiver").Errorf("invalid namespace_name %s", namespace.NamespaceName)
-		return utils.BadRequest(ctx, "Invalid namespace_name")
+	// 验证输入
+	valid, err := services.CheckACNKFormat(ctx, &env, &appName, &clusterName, &namespace.NamespaceName, nil)
+	if !valid {
+		return err
 	}
 
 	namespace.AppName = appName
@@ -81,6 +70,14 @@ func (c *NamespaceHandler) CreateNamespace(ctx *fiber.Ctx) error {
 // ListNamespace 获取命名空间列表
 func (c *NamespaceHandler) ListNamespace(ctx *fiber.Ctx) error {
 	env := ctx.Locals("env").(string) // 类型断言
+	appName := ctx.Params("app_name")
+	clusterName := ctx.Params("cluster_name")
+
+	// 验证输入
+	valid, err := services.CheckACNKFormat(ctx, &env, &appName, &clusterName, nil, nil)
+	if !valid {
+		return err
+	}
 
 	page, _ := strconv.Atoi(ctx.Query("page", "1"))
 	size, _ := strconv.Atoi(ctx.Query("size", "20"))
@@ -90,19 +87,6 @@ func (c *NamespaceHandler) ListNamespace(ctx *fiber.Ctx) error {
 	}
 	if size < 1 {
 		size = 20
-	}
-
-	appName := ctx.Params("app_name")
-	clusterName := ctx.Params("cluster_name")
-
-	if !utils.ValidateAppName(appName) {
-		logger.GetLogger("quiver").Errorf("invalid app_name %s", appName)
-		return utils.BadRequest(ctx, "invalid app_name")
-	}
-
-	if !utils.ValidateClusterName(clusterName) {
-		logger.GetLogger("quiver").Errorf("invalid cluster_name %s", clusterName)
-		return utils.BadRequest(ctx, "Invalid cluster_name")
 	}
 
 	namespaces, total, err := c.namespaceService.ListNamespace(env, appName, clusterName, page, size)
@@ -151,19 +135,10 @@ func (c *NamespaceHandler) GetNamespace(ctx *fiber.Ctx) error {
 	clusterName := ctx.Params("cluster_name")
 	namespaceName := ctx.Params("namespace_name")
 
-	if !utils.ValidateAppName(appName) {
-		logger.GetLogger("quiver").Errorf("invalid app_name %s", appName)
-		return utils.BadRequest(ctx, "invalid app_name")
-	}
-
-	if !utils.ValidateClusterName(clusterName) {
-		logger.GetLogger("quiver").Errorf("invalid cluster_name %s", clusterName)
-		return utils.BadRequest(ctx, "invalid cluster_name")
-	}
-
-	if !utils.ValidateNamespaceName(namespaceName) {
-		logger.GetLogger("quiver").Errorf("invalid namespace_name %s", namespaceName)
-		return utils.BadRequest(ctx, "Invalid namespace_name")
+	// 验证输入
+	valid, err := services.CheckACNKFormat(ctx, &env, &appName, &clusterName, &namespaceName, nil)
+	if !valid {
+		return err
 	}
 
 	namespace, err := c.namespaceService.GetNamespace(env, appName, clusterName, namespaceName)
@@ -205,24 +180,14 @@ func (c *NamespaceHandler) GetNamespace(ctx *fiber.Ctx) error {
 // DeleteNamespace 删除命名空间
 func (c *NamespaceHandler) DeleteNamespace(ctx *fiber.Ctx) error {
 	env := ctx.Locals("env").(string) // 类型断言
-
 	appName := ctx.Params("app_name")
 	clusterName := ctx.Params("cluster_name")
 	namespaceName := ctx.Params("namespace_name")
 
-	if !utils.ValidateAppName(appName) {
-		logger.GetLogger("quiver").Errorf("invalid app_name %s", appName)
-		return utils.BadRequest(ctx, "invalid app_name")
-	}
-
-	if !utils.ValidateClusterName(clusterName) {
-		logger.GetLogger("quiver").Errorf("invalid cluster_name %s", clusterName)
-		return utils.BadRequest(ctx, "Invalid cluster_name")
-	}
-
-	if !utils.ValidateNamespaceName(namespaceName) {
-		logger.GetLogger("quiver").Errorf("invalid namespace_name %s", namespaceName)
-		return utils.BadRequest(ctx, "invalid namespace_name")
+	// 验证输入
+	valid, err := services.CheckACNKFormat(ctx, &env, &appName, &clusterName, &namespaceName, nil)
+	if !valid {
+		return err
 	}
 
 	if err := c.namespaceService.DeleteNamespace(env, appName, clusterName, namespaceName); err != nil {

@@ -24,13 +24,7 @@ func NewClusterHandler() *ClusterHandler {
 // CreateCluster 创建集群
 func (c *ClusterHandler) CreateCluster(ctx *fiber.Ctx) error {
 	env := ctx.Locals("env").(string) // 类型断言
-
 	appName := ctx.Params("app_name")
-
-	if !utils.ValidateAppName(appName) {
-		logger.GetLogger("quiver").Errorf("invalid app_name %s", appName)
-		return utils.BadRequest(ctx, "invalid app_name")
-	}
 
 	var cluster models.Cluster
 	if err := ctx.BodyParser(&cluster); err != nil {
@@ -38,10 +32,10 @@ func (c *ClusterHandler) CreateCluster(ctx *fiber.Ctx) error {
 		return utils.BadRequest(ctx, "invalid request body")
 	}
 
-	// 验证集群名称
-	if !utils.ValidateClusterName(cluster.ClusterName) {
-		logger.GetLogger("quiver").Errorf("invalid cluster_name %s", cluster.ClusterName)
-		return utils.BadRequest(ctx, "invalid cluster_name")
+	// 验证输入
+	valid, err := services.CheckACNKFormat(ctx, &env, &appName, &cluster.ClusterName, nil, nil)
+	if !valid {
+		return err
 	}
 
 	cluster.AppName = appName
@@ -69,6 +63,13 @@ func (c *ClusterHandler) CreateCluster(ctx *fiber.Ctx) error {
 // ListCluster 获取集群列表
 func (c *ClusterHandler) ListCluster(ctx *fiber.Ctx) error {
 	env := ctx.Locals("env").(string) // 类型断言
+	appName := ctx.Params("app_name")
+
+	// 验证输入
+	valid, err := services.CheckACNKFormat(ctx, &env, &appName, nil, nil, nil)
+	if !valid {
+		return err
+	}
 
 	page, _ := strconv.Atoi(ctx.Query("page", "1"))
 	size, _ := strconv.Atoi(ctx.Query("size", "20"))
@@ -79,8 +80,6 @@ func (c *ClusterHandler) ListCluster(ctx *fiber.Ctx) error {
 	if size < 1 {
 		size = 20
 	}
-
-	appName := ctx.Params("app_name")
 
 	if !utils.ValidateAppName(appName) {
 		logger.GetLogger("quiver").Errorf("invalid app_name %s", appName)
@@ -123,18 +122,13 @@ func (c *ClusterHandler) ListCluster(ctx *fiber.Ctx) error {
 // GetCluster 获取单个集群
 func (c *ClusterHandler) GetCluster(ctx *fiber.Ctx) error {
 	env := ctx.Locals("env").(string) // 类型断言
-
 	appName := ctx.Params("app_name")
 	clusterName := ctx.Params("cluster_name")
 
-	if !utils.ValidateAppName(appName) {
-		logger.GetLogger("quiver").Errorf("invalid app_name %s", appName)
-		return utils.BadRequest(ctx, "invalid app_name format")
-	}
-
-	if !utils.ValidateClusterName(clusterName) {
-		logger.GetLogger("quiver").Errorf("invalid cluster_name %s", clusterName)
-		return utils.BadRequest(ctx, "invalid cluster_name format")
+	// 验证输入
+	valid, err := services.CheckACNKFormat(ctx, &env, &appName, &clusterName, nil, nil)
+	if !valid {
+		return err
 	}
 
 	cluster, err := c.clusterService.GetCluster(env, appName, clusterName)
@@ -158,18 +152,13 @@ func (c *ClusterHandler) GetCluster(ctx *fiber.Ctx) error {
 // DeleteCluster 删除集群
 func (c *ClusterHandler) DeleteCluster(ctx *fiber.Ctx) error {
 	env := ctx.Locals("env").(string) // 类型断言
-
 	appName := ctx.Params("app_name")
 	clusterName := ctx.Params("cluster_name")
 
-	if !utils.ValidateAppName(appName) {
-		logger.GetLogger("quiver").Errorf("invalid app_name %s", appName)
-		return utils.BadRequest(ctx, "invalid app_name format")
-	}
-
-	if !utils.ValidateClusterName(clusterName) {
-		logger.GetLogger("quiver").Errorf("invalid cluster_name %s", clusterName)
-		return utils.BadRequest(ctx, "invalid cluster_name format")
+	// 验证输入
+	valid, err := services.CheckACNKFormat(ctx, &env, &appName, &clusterName, nil, nil)
+	if !valid {
+		return err
 	}
 
 	if err := c.clusterService.DeleteCluster(env, appName, clusterName); err != nil {

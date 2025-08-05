@@ -31,12 +31,10 @@ func (c *AppHandler) CreateApp(ctx *fiber.Ctx) error {
 		return utils.BadRequest(ctx, "invalid request body")
 	}
 
-	//logger.GetLogger("quiver").Infof("get app %+v", app)
-
 	// 验证输入
-	if !utils.ValidateAppName(app.AppName) {
-		logger.GetLogger("quiver").Error("invalid app_name: ", app.AppName)
-		return utils.BadRequest(ctx, "invalid app_name format")
+	valid, err := services.CheckACNKFormat(ctx, &env, &app.AppName, nil, nil, nil)
+	if !valid {
+		return err
 	}
 
 	if len(app.Description) > 500 {
@@ -58,7 +56,7 @@ func (c *AppHandler) CreateApp(ctx *fiber.Ctx) error {
 	return utils.Success(ctx, 0, "success", app)
 }
 
-// GetApps 获取应用列表
+// ListApp 获取应用列表
 func (c *AppHandler) ListApp(ctx *fiber.Ctx) error {
 	env := ctx.Locals("env").(string) // 类型断言
 
@@ -72,7 +70,7 @@ func (c *AppHandler) ListApp(ctx *fiber.Ctx) error {
 		size = 20
 	}
 
-	apps, total, err := c.appService.GetAllApps(env, page, size)
+	apps, total, err := c.appService.ListApp(env, page, size)
 	if err != nil {
 		logger.GetLogger("quiver").Errorf("app list failed %s", err.Error())
 		return utils.InternalError(ctx, err.Error())
@@ -92,12 +90,12 @@ func (c *AppHandler) ListApp(ctx *fiber.Ctx) error {
 // GetApp 获取单个应用
 func (c *AppHandler) GetApp(ctx *fiber.Ctx) error {
 	env := ctx.Locals("env").(string) // 类型断言
-
 	appName := ctx.Params("app_name")
 
-	if !utils.ValidateAppName(appName) {
-		logger.GetLogger("quiver").Errorf("invalid app_name %s", appName)
-		return utils.BadRequest(ctx, "invalid app_name")
+	// 验证输入
+	valid, err := services.CheckACNKFormat(ctx, &env, &appName, nil, nil, nil)
+	if !valid {
+		return err
 	}
 
 	app, err := c.appService.GetApp(env, appName)
@@ -120,12 +118,12 @@ func (c *AppHandler) GetApp(ctx *fiber.Ctx) error {
 // UpdateApp 更新应用
 func (c *AppHandler) UpdateApp(ctx *fiber.Ctx) error {
 	env := ctx.Locals("env").(string) // 类型断言
-
 	appName := ctx.Params("app_name")
 
-	if !utils.ValidateAppName(appName) {
-		logger.GetLogger("quiver").Errorf("invalid app_name %s", appName)
-		return utils.BadRequest(ctx, "invalid app_name")
+	// 验证输入
+	valid, err := services.CheckACNKFormat(ctx, &env, &appName, nil, nil, nil)
+	if !valid {
+		return err
 	}
 
 	var updates map[string]interface{}
@@ -156,12 +154,12 @@ func (c *AppHandler) UpdateApp(ctx *fiber.Ctx) error {
 // DeleteApp 删除应用
 func (c *AppHandler) DeleteApp(ctx *fiber.Ctx) error {
 	env := ctx.Locals("env").(string) // 类型断言
-
 	appName := ctx.Params("app_name")
 
-	if !utils.ValidateAppName(appName) {
-		logger.GetLogger("quiver").Errorf("invalid app_name %s", appName)
-		return utils.BadRequest(ctx, "invalid app_name")
+	// 验证输入
+	valid, err := services.CheckACNKFormat(ctx, &env, &appName, nil, nil, nil)
+	if !valid {
+		return err
 	}
 
 	if err := c.appService.DeleteApp(env, appName); err != nil {

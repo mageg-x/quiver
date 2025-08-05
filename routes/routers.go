@@ -57,9 +57,18 @@ func SetupRoutes(app *fiber.App) {
 	{
 		itemController := handler.NewItemHandler()
 		items.Post("/", itemController.SetItem)
+		items.Get("/", itemController.ListItem)
 		items.Get("/:key", itemController.GetItem)
 		items.Delete("/:key", itemController.DeleteItem)
 	}
-	// 404处理
+
+	// 发布接口
+	//releases := namespaces.Group("/:namespace_name/releases")
+	//{
+	//	releaseHandler := handler.NewReleaseHandler()
+	//	releases.Post("/", releaseHandler.PublishRelease)
+	//	releases.Get("/:release_id", releaseHandler.GetRelease)
+	//}
+
 	app.Use(middleware.NotFoundHandler)
 }

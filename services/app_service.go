@@ -43,7 +43,7 @@ func (s *AppService) CreateApp(env string, app *models.App) error {
 	return db.Create(app).Error
 }
 
-// GetAppByID 根据ID获取应用
+// GetApp 根据ID获取应用
 func (s *AppService) GetApp(env string, appName string) (*models.App, error) {
 	db := database.GetDB(env)
 
@@ -57,8 +57,8 @@ func (s *AppService) GetApp(env string, appName string) (*models.App, error) {
 	return &app, nil
 }
 
-// GetAllApps 获取所有应用
-func (s *AppService) GetAllApps(env string, page, size int) ([]models.App, int64, error) {
+// ListApp 获取所有应用
+func (s *AppService) ListApp(env string, page, size int) ([]models.App, int64, error) {
 	db := database.GetDB(env)
 
 	var apps []models.App
@@ -66,6 +66,7 @@ func (s *AppService) GetAllApps(env string, page, size int) ([]models.App, int64
 
 	// 获取总数
 	if err := db.Model(&models.App{}).Count(&total).Error; err != nil {
+		logger.GetLogger("quiver").Errorf("failed to count apps num %s", err.Error())
 		return nil, 0, err
 	}
 
@@ -115,29 +116,23 @@ func (s *AppService) DeleteApp(env string, appName string) error {
 	// 先查询app 是否存在
 	app, err := s.GetApp(env, appName)
 	if err != nil || app == nil {
-		logger.GetLogger("quiver").Errorf("app get %s failed %s", appName, err.Error())
+		logger.GetLogger("quiver").Errorf("app get %s failed %s", appName, err)
 		return errors.New("app_name not exist")
 	}
 
 	return db.Transaction(func(tx *gorm.DB) error {
 		// 更新  Item 记录的 deleted 字段
-		itemResult := tx.Model(&models.Item{}).Where("app_id = ?", app.AppID).Update("deleted", 1)
-		if itemResult.Error != nil {
-			logger.GetLogger("quiver").Errorf("update items deleted for app %s failed %s", appName, itemResult.Error)
-			return itemResult.Error
-		}
-		if itemResult.RowsAffected == 0 {
-			logger.GetLogger("quiver").Warnf("no items found for app %s", appName)
+		err := BulkMarkDeleted[models.Item](tx, map[string]interface{}{"app_id": app.AppID})
+		if err != nil {
+			logger.GetLogger("quiver").Errorf("update items deleted for app %s failed %s", appName, err)
+			return err
 		}
 
 		// 更新与  ItemRelease 记录的 deleted 字段
-		itemReleaseResult := tx.Model(&models.ItemRelease{}).Where("app_id = ?", app.AppID).Update("deleted", 1)
-		if itemReleaseResult.Error != nil {
-			logger.GetLogger("quiver").Errorf("update items release deleted for app %s failed %s", appName, itemReleaseResult.Error)
-			return itemReleaseResult.Error
-		}
-		if itemReleaseResult.RowsAffected == 0 {
-			logger.GetLogger("quiver").Warnf("no items releases found for app %s", appName)
+		err = BulkMarkDeleted[models.ItemRelease](tx, map[string]interface{}{"app_id": app.AppID})
+		if err != nil {
+			logger.GetLogger("quiver").Errorf("update items release deleted for app %s failed %s", appName, err)
+			return err
 		}
 
 		// 删除应用相关的所有数据

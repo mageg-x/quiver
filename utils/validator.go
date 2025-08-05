@@ -21,7 +21,7 @@ func ValidateAppName(appName string) bool {
 		return false
 	}
 	// 只允许字母、数字、下划线、中划线
-	matched, _ := regexp.MatchString(`^[a-zA-Z0-9_-]+$`, appName)
+	matched, _ := regexp.MatchString(`^[a-zA-Z0-9_.-]+$`, appName)
 	return matched
 }
 
@@ -35,7 +35,7 @@ func ValidateClusterName(clusterName string) bool {
 		return false
 	}
 	// 只允许字母、数字、下划线、中划线
-	matched, _ := regexp.MatchString(`^[a-zA-Z0-9_-]+$`, clusterName)
+	matched, _ := regexp.MatchString(`^[a-zA-Z0-9_.-]+$`, clusterName)
 	return matched
 }
 
@@ -49,7 +49,7 @@ func ValidateNamespaceName(namespaceName string) bool {
 		return false
 	}
 	// 只允许字母、数字、下划线、中划线
-	matched, _ := regexp.MatchString(`^[a-zA-Z0-9_-]+$`, namespaceName)
+	matched, _ := regexp.MatchString(`^[a-zA-Z0-9_.-]+$`, namespaceName)
 	return matched
 }
 
@@ -62,7 +62,7 @@ func ValidateItemKey(key string) bool {
 	if strings.ContainsRune("_-.=@#+", rune(key[0])) {
 		return false
 	}
-	matched, _ := regexp.MatchString(`^[a-zA-Z0-9_-]+$`, key)
+	matched, _ := regexp.MatchString(`^[a-zA-Z0-9_.-]+$`, key)
 	return matched
 }
 

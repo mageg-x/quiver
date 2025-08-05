@@ -5,6 +5,7 @@ import (
 	"quiver/logger"
 	"quiver/services"
 	"quiver/utils"
+	"strconv"
 )
 
 // ItemHandler 命名空间控制器
@@ -26,22 +27,6 @@ func (c *ItemHandler) SetItem(ctx *fiber.Ctx) error {
 	clusterName := ctx.Params("cluster_name")
 	namespaceName := ctx.Params("namespace_name")
 
-	// 参数验证
-	if !utils.ValidateAppName(appName) {
-		logger.GetLogger("quiver").Errorf("invalid app_name %s", appName)
-		return utils.BadRequest(ctx, "invalid app_name")
-	}
-
-	if !utils.ValidateClusterName(clusterName) {
-		logger.GetLogger("quiver").Errorf("invalid cluster_name %s", clusterName)
-		return utils.BadRequest(ctx, "invalid cluster_name")
-	}
-
-	if !utils.ValidateNamespaceName(namespaceName) {
-		logger.GetLogger("quiver").Errorf("invalid namespace_name %s", namespaceName)
-		return utils.BadRequest(ctx, "invalid namespace_name")
-	}
-
 	var request struct {
 		Key   string `json:"key"`
 		Value string `json:"value"`
@@ -52,13 +37,29 @@ func (c *ItemHandler) SetItem(ctx *fiber.Ctx) error {
 		return utils.BadRequest(ctx, "invalid request body")
 	}
 
-	if !utils.ValidateItemKey(request.Key) {
-		logger.GetLogger("quiver").Errorf("invalid item key %s", request.Key)
-		return utils.BadRequest(ctx, "invalid item key")
+	// 验证输入
+	valid, err := services.CheckACNKFormat(ctx, &env, &appName, &clusterName, &namespaceName, &request.Key)
+	if !valid {
+		return err
 	}
 
-	err := c.itemService.SetItem(env, appName, clusterName, namespaceName, request.Key, request.Value)
+	if len(request.Value) == 0 {
+		logger.GetLogger("quiver").Errorf("invalid item value")
+		return utils.BadRequest(ctx, "invalid item value")
+	}
+
+	err = c.itemService.SetItem(env, appName, clusterName, namespaceName, request.Key, request.Value)
 	if err != nil {
+		if err.Error() == "app not found" {
+			logger.GetLogger("quiver").Errorf("app not found")
+			return utils.NotFound(ctx, err.Error())
+		}
+
+		if err.Error() == "cluster not found" {
+			logger.GetLogger("quiver").Errorf("cluster not found %s", clusterName)
+			return utils.NotFound(ctx, err.Error())
+		}
+
 		if err.Error() == "namespace not found" {
 			logger.GetLogger("quiver").Errorf("namespace not found")
 			return utils.NotFound(ctx, err.Error())
@@ -89,29 +90,29 @@ func (c *ItemHandler) GetItem(ctx *fiber.Ctx) error {
 	namespaceName := ctx.Params("namespace_name")
 	key := ctx.Params("key")
 
-	// 参数验证
-	if !utils.ValidateAppName(appName) {
-		logger.GetLogger("quiver").Errorf("invalid app_name %s", appName)
-		return utils.BadRequest(ctx, "invalid app_name")
+	// 验证输入
+	valid, err := services.CheckACNKFormat(ctx, &env, &appName, &clusterName, &namespaceName, &key)
+	if !valid {
+		return err
 	}
 
-	if !utils.ValidateClusterName(clusterName) {
-		logger.GetLogger("quiver").Errorf("invalid cluster_name %s", clusterName)
-		return utils.BadRequest(ctx, "invalid cluster_name")
-	}
-
-	if !utils.ValidateNamespaceName(namespaceName) {
-		logger.GetLogger("quiver").Errorf("invalid namespace_name %s", namespaceName)
-		return utils.BadRequest(ctx, "invalid namespace_name")
-	}
-
-	if !utils.ValidateItemKey(key) {
-		logger.GetLogger("quiver").Errorf("invalid item key %s", key)
-		return utils.BadRequest(ctx, "invalid item key")
-	}
-
-	value, err := c.itemService.GetItem(env, appName, clusterName, namespaceName, key)
+	item, err := c.itemService.GetItem(env, appName, clusterName, namespaceName, key)
 	if err != nil {
+		if err.Error() == "app not found" {
+			logger.GetLogger("quiver").Errorf("app not found")
+			return utils.NotFound(ctx, err.Error())
+		}
+
+		if err.Error() == "cluster not found" {
+			logger.GetLogger("quiver").Errorf("cluster not found %s", clusterName)
+			return utils.NotFound(ctx, err.Error())
+		}
+
+		if err.Error() == "namespace not found" {
+			logger.GetLogger("quiver").Errorf("namespace not found")
+			return utils.NotFound(ctx, err.Error())
+		}
+
 		if err.Error() == "item not found" {
 			return utils.NotFound(ctx, err.Error())
 		}
@@ -124,7 +125,48 @@ func (c *ItemHandler) GetItem(ctx *fiber.Ctx) error {
 		"cluster_name":   clusterName,
 		"namespace_name": namespaceName,
 		"key":            key,
-		"value":          value,
+		"value":          item.V,
+		"create_time":    item.CreateTime,
+		"update_time":    item.UpdateTime,
+	}
+
+	return utils.Success(ctx, 0, "success", response)
+}
+
+func (c *ItemHandler) ListItem(ctx *fiber.Ctx) error {
+	env := ctx.Locals("env").(string) // 类型断言
+	appName := ctx.Params("app_name")
+	clusterName := ctx.Params("cluster_name")
+	namespaceName := ctx.Params("namespace_name")
+	search := ctx.Query("search")
+	// 验证输入
+	valid, err := services.CheckACNKFormat(ctx, &env, &appName, &clusterName, &namespaceName, nil)
+	if !valid {
+		return err
+	}
+
+	page, _ := strconv.Atoi(ctx.Query("page", "1"))
+	size, _ := strconv.Atoi(ctx.Query("size", "100"))
+
+	if page < 1 {
+		page = 1
+	}
+	if size < 1 {
+		size = 100
+	}
+
+	items, total, err := c.itemService.ListItem(env, appName, clusterName, namespaceName, search, page, size)
+	if err != nil {
+		logger.GetLogger("quiver").Errorf("items list failed %s", err.Error())
+		return utils.InternalError(ctx, err.Error())
+	}
+
+	response := fiber.Map{
+		"env":   env,
+		"total": total,
+		"page":  page,
+		"size":  size,
+		"items": items,
 	}
 
 	return utils.Success(ctx, 0, "success", response)
@@ -133,35 +175,31 @@ func (c *ItemHandler) GetItem(ctx *fiber.Ctx) error {
 // DeleteItem 删除配置项
 func (c *ItemHandler) DeleteItem(ctx *fiber.Ctx) error {
 	env := ctx.Locals("env").(string) // 类型断言
-
 	appName := ctx.Params("app_name")
 	clusterName := ctx.Params("cluster_name")
 	namespaceName := ctx.Params("namespace_name")
 	key := ctx.Params("key")
 
-	// 参数验证
-	if !utils.ValidateAppName(appName) {
-		logger.GetLogger("quiver").Errorf("invalid app_name %s", appName)
-		return utils.BadRequest(ctx, "invalid app_name")
+	// 验证输入
+	valid, err := services.CheckACNKFormat(ctx, &env, &appName, &clusterName, &namespaceName, &key)
+	if !valid {
+		return err
 	}
 
-	if !utils.ValidateClusterName(clusterName) {
-		logger.GetLogger("quiver").Errorf("invalid cluster_name %s", clusterName)
-		return utils.BadRequest(ctx, "invalid cluster_name")
-	}
-
-	if !utils.ValidateNamespaceName(namespaceName) {
-		logger.GetLogger("quiver").Errorf("invalid namespace_name %s", namespaceName)
-		return utils.BadRequest(ctx, "invalid namespace_name")
-	}
-
-	if !utils.ValidateItemKey(key) {
-		logger.GetLogger("quiver").Errorf("invalid item key %s", key)
-		return utils.BadRequest(ctx, "invalid item key")
-	}
-
-	err := c.itemService.DeleteItem(env, appName, clusterName, namespaceName, key)
+	err = c.itemService.DeleteItem(env, appName, clusterName, namespaceName, key)
 	if err != nil {
+		if err.Error() == "app not found" {
+			return utils.NotFound(ctx, err.Error())
+		}
+
+		if err.Error() == "cluster not found" {
+			return utils.NotFound(ctx, err.Error())
+		}
+
+		if err.Error() == "namespace not found" {
+			return utils.NotFound(ctx, err.Error())
+		}
+
 		if err.Error() == "item not found" {
 			return utils.NotFound(ctx, err.Error())
 		}

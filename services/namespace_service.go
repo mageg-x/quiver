@@ -10,27 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// CheckAC 检查 app, cluster, namespace
-func CheckAC(env, appName, clusterName string) (*models.IDs, error) {
-	db := database.GetDB(env)
-	// 检查应用是否存在
-	var app models.App
-	err := db.Where("app_name = ?", appName).First(&app).Error
-	if err != nil {
-		logger.GetLogger("quiver").Errorf("app %s not found", appName)
-		return nil, errors.New("app not found")
-	}
-	// 检查集群是否存在
-	var cluster models.Cluster
-	err = db.Where("app_name = ? AND cluster_name = ?", appName, clusterName).First(&cluster).Error
-	if err != nil {
-		logger.GetLogger("quiver").Errorf("cluster %s not found", clusterName)
-		return nil, errors.New("cluster not found")
-	}
-
-	return &models.IDs{AppID: app.AppID, ClusterID: cluster.ClusterID}, err
-}
-
 // NamespaceService 命名空间服务
 type NamespaceService struct{}
 
@@ -41,7 +20,7 @@ func NewNamespaceService() *NamespaceService {
 
 // CreateNamespace 创建命名空间
 func (s *NamespaceService) CreateNamespace(env string, namespace *models.Namespace) error {
-	ids, err := CheckAC(env, namespace.AppName, namespace.ClusterName)
+	ids, err := CheckACNKinDB(&env, &namespace.AppName, &namespace.ClusterName, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -69,7 +48,7 @@ func (s *NamespaceService) CreateNamespace(env string, namespace *models.Namespa
 
 // ListNamespace 获取集群下的所有命名空间
 func (s *NamespaceService) ListNamespace(env string, appName, clusterName string, page, size int) ([]models.Namespace, int64, error) {
-	ids, err := CheckAC(env, appName, clusterName)
+	ids, err := CheckACNKinDB(&env, &appName, &clusterName, nil, nil)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -80,11 +59,11 @@ func (s *NamespaceService) ListNamespace(env string, appName, clusterName string
 	var total int64
 
 	// 构建查询条件
-	query := db.Where("cluster_id = ?", ids.ClusterID)
+	query := db.Where("cluster_id = ?", ids.ClusterID).Order("update_time DESC,id DESC")
 
 	// 获取总数（用于分页）
 	if err := query.Model(&models.Namespace{}).Count(&total).Error; err != nil {
-		logger.GetLogger("quiver").Errorf("failed to count namespaces: %s", err.Error())
+		logger.GetLogger("quiver").Errorf("failed to count namespaces num : %s for cluster: %s", err.Error(), clusterName)
 		return nil, 0, fmt.Errorf("failed to count namespaces: %w", err)
 	}
 
@@ -101,11 +80,15 @@ func (s *NamespaceService) ListNamespace(env string, appName, clusterName string
 
 // GetNamespace 获取特定命名空间
 func (s *NamespaceService) GetNamespace(env string, appName, clusterName, namespaceName string) (*models.Namespace, error) {
+	ids, err := CheckACNKinDB(&env, &appName, &clusterName, &namespaceName, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	db := database.GetDB(env)
 
 	var namespace models.Namespace
-	err := db.Where("app_name = ? AND cluster_name = ? AND namespace_name = ?",
-		appName, clusterName, namespaceName).First(&namespace).Error
+	err = db.Where("id = ?", ids.NamespaceID).First(&namespace).Error
 	if err != nil {
 		logger.GetLogger("quiver").Errorf("namespace %s not found",
 			appName+"/"+clusterName+"/"+namespaceName)
@@ -117,45 +100,30 @@ func (s *NamespaceService) GetNamespace(env string, appName, clusterName, namesp
 
 // DeleteNamespace 删除命名空间
 func (s *NamespaceService) DeleteNamespace(env string, appName, clusterName, namespaceName string) error {
-	ids, err := CheckAC(env, appName, clusterName)
+	ids, err := CheckACNKinDB(&env, &appName, &clusterName, &namespaceName, nil)
 	if err != nil {
 		return err
 	}
 
 	db := database.GetDB(env)
 
-	// 先检查命名空间是否存在
-	var namespace models.Namespace
-	err = db.Where("cluster_id = ? AND namespace_name = ?", ids.ClusterID, namespaceName).First(&namespace).Error
-	if err != nil {
-		logger.GetLogger("quiver").Errorf("namespace %s not found", namespaceName)
-		return errors.New("namespace not found")
-	}
-
 	return db.Transaction(func(tx *gorm.DB) error {
 		// 更新  Item 记录的 deleted 字段
-		itemResult := tx.Model(&models.Item{}).Where("namespace_id = ?", namespace.NamespaceID).Update("deleted", 1)
-		if itemResult.Error != nil {
-			logger.GetLogger("quiver").Errorf("update items deleted for namespace %s failed %s", namespaceName, itemResult.Error)
-			return itemResult.Error
-		}
-		if itemResult.RowsAffected == 0 {
-			logger.GetLogger("quiver").Warnf("no items found for namespace %s", namespaceName)
+		err := BulkMarkDeleted[models.Item](tx, map[string]interface{}{"namespace_id": ids.NamespaceID})
+		if err != nil {
+			logger.GetLogger("quiver").Errorf("update items deleted for namespace %s failed %s", namespaceName, err)
+			return err
 		}
 
 		// 更新与  ItemRelease 记录的 deleted 字段
-		itemReleaseResult := tx.Model(&models.ItemRelease{}).Where("namespace_id = ?", namespace.NamespaceID).Update("deleted", 1)
-		if itemReleaseResult.Error != nil {
-			logger.GetLogger("quiver").Errorf("update items release deleted for namespace %s failed %s", namespaceName, itemReleaseResult.Error)
-			return itemReleaseResult.Error
-		}
-		if itemReleaseResult.RowsAffected == 0 {
-			logger.GetLogger("quiver").Warnf("no items releases found for namespace %s", namespaceName)
+		err = BulkMarkDeleted[models.ItemRelease](tx, map[string]interface{}{"namespace_id": ids.NamespaceID})
+		if err != nil {
+			logger.GetLogger("quiver").Errorf("update items release deleted for namespace %s failed %s", namespaceName, err)
+			return err
 		}
 
 		// 删除命名空间
-		result := tx.Where("app_name = ? AND cluster_name = ? AND namespace_name = ?",
-			appName, clusterName, namespaceName).Delete(&models.Namespace{})
+		result := tx.Where("id = ?", ids.NamespaceID).Delete(&models.Namespace{})
 		if result.Error != nil {
 			logger.GetLogger("quiver").Errorf("delete namespace %s failed %s", namespaceName, result.Error)
 			return result.Error
