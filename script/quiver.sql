@@ -1,4 +1,4 @@
--- MySQL 脚本：KVConfig 配置中心数据库表结构
+-- MySQL 脚本：quiver  配置中心数据库表结构
 -- 文件编码：UTF-8
 -- 适用于 MySQL 8+
 
@@ -7,7 +7,6 @@
 -- CREATE DATABASE quiver_pro CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE quiver;
 
--- 用户表
 -- 用户表
 CREATE TABLE IF NOT EXISTS user (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -23,6 +22,37 @@ CREATE TABLE IF NOT EXISTS user (
     UNIQUE KEY uk_phone (phone)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 权限表
+CREATE TABLE IF NOT EXISTS permission (
+    id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id          BIGINT NOT NULL,
+    resource_type    ENUM('APP', 'CLUSTER', 'NAMESPACE') NOT NULL,
+    resource_id      BIGINT NOT NULL,           -- 指向 app.id / cluster.id / namespace.id
+    resource_name    VARCHAR(128) NOT NULL,     -- 冗余，便于查询
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    -- 唯一性：一个用户对一个资源的某个操作只能有一条记录
+    UNIQUE KEY uk_user_resource_action (user_id, resource_type, resource_id, action),
+
+    FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE,
+
+    KEY idx_resource (resource_type, resource_id),
+    KEY idx_user_actions (user_id, resource_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS accesskey (
+    id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id         BIGINT NOT NULL,          -- 关联用户表的ID
+    access_key      VARCHAR(64) NOT NULL,     -- Access Key
+    secret_key      VARCHAR(128) NOT NULL,    -- Secret Key (建议存储加密后的值)
+
+    create_time     DATETIME DEFAULT CURRENT_TIMESTAMP,
+    update_time     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_access_key (access_key),
+    FOREIGN KEY (user_id) REFERENCES user (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 应用表
 CREATE TABLE IF NOT EXISTS app (
@@ -99,7 +129,7 @@ CREATE TABLE IF NOT EXISTS item (
     -- 优化：合并高频查询
     KEY idx_namespace_k (namespace_id, k),           -- 查询 k
     KEY idx_namespace_released (namespace_id, is_released, is_deleted), -- 发布查询
-    KEY idx_namespace_deleted (namespace_id, is_deleted), -- 批量操作
+    KEY idx_namespace_deleted (namespace_id, is_deleted,k), -- 批量操作
     KEY idx_kv_id (kv_id),                           -- 快速查 kv_id
     KEY idx_k (k)                                    -- 全局查 key（可选）
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

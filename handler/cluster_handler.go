@@ -100,6 +100,7 @@ func (c *ClusterHandler) ListCluster(ctx *fiber.Ctx) error {
 	dtos := make([]map[string]interface{}, len(clusters))
 	for i, cluster := range clusters {
 		dtos[i] = map[string]interface{}{
+			"cluster_id":   cluster.ClusterID,
 			"cluster_name": cluster.ClusterName,
 			"description":  cluster.Description,
 			"create_time":  cluster.CreateTime,
@@ -140,6 +141,7 @@ func (c *ClusterHandler) GetCluster(ctx *fiber.Ctx) error {
 	response := fiber.Map{
 		"env":          env,
 		"app_name":     cluster.AppName,
+		"cluster_id":   cluster.ClusterID,
 		"cluster_name": cluster.ClusterName,
 		"description":  cluster.Description,
 		"create_time":  cluster.CreateTime,

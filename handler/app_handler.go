@@ -106,6 +106,7 @@ func (c *AppHandler) GetApp(ctx *fiber.Ctx) error {
 
 	response := fiber.Map{
 		"env":         env,
+		"app_id":      app.AppID,
 		"app_name":    app.AppName,
 		"description": app.Description,
 		"create_time": app.CreateTime,
@@ -143,6 +144,7 @@ func (c *AppHandler) UpdateApp(ctx *fiber.Ctx) error {
 
 	response := fiber.Map{
 		"env":         env,
+		"app_id":      app.AppID,
 		"app_name":    app.AppName,
 		"description": app.Description,
 		"create_time": app.CreateTime,

@@ -6,8 +6,8 @@ import (
 
 // Cluster 集群模型
 type Cluster struct {
-	ClusterID   uint64    `json:"-" gorm:"column:id;primaryKey;autoIncrement"`
-	AppID       uint64    `json:"-" gorm:"column:app_id;not null;index:idx_app_id"`                                 // 外键字段
+	ClusterID   uint64    `json:"cluster_id" gorm:"column:id;primaryKey;autoIncrement"`
+	AppID       uint64    `json:"app_id" gorm:"column:app_id;not null;index:idx_app_id"`                            // 外键字段
 	AppName     string    `json:"app_name" gorm:"column:app_name;size:128;not null;index:idx_app_name"`             // 用于唯一约束
 	ClusterName string    `json:"cluster_name" gorm:"column:cluster_name;size:128;not null;index:idx_cluster_name"` // 同上
 	Description string    `json:"description" gorm:"column:description;size:1024"`

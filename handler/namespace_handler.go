@@ -107,6 +107,7 @@ func (c *NamespaceHandler) ListNamespace(ctx *fiber.Ctx) error {
 	dtos := make([]map[string]interface{}, len(namespaces))
 	for i, ns := range namespaces {
 		dtos[i] = map[string]interface{}{
+			"namespace_id":   ns.NamespaceID,
 			"namespace_name": ns.NamespaceName,
 			"description":    ns.Description,
 			"create_time":    ns.CreateTime,
@@ -168,6 +169,7 @@ func (c *NamespaceHandler) GetNamespace(ctx *fiber.Ctx) error {
 		"env":            env,
 		"app_name":       namespace.AppName,
 		"cluster_name":   namespace.ClusterName,
+		"namespace_id":   namespace.NamespaceID,
 		"namespace_name": namespace.NamespaceName,
 		"description":    namespace.Description,
 		"create_time":    namespace.CreateTime,

@@ -20,6 +20,34 @@ func SetupRoutes(app *fiber.App) {
 
 	//在 envGroup 上应用 EnvMiddleware
 	envGroup.Use(middleware.EnvMiddleware())
+	// 用户管理 （只允许管理员）
+	users := envGroup.Group("/users")
+	{
+		users.Post("/", handler.NewUserHandler().CreateUser)
+		users.Get("/", handler.NewUserHandler().ListUser)
+		users.Get("/:user_id", handler.NewUserHandler().GetUser)
+		users.Put("/:user_id", handler.NewUserHandler().UpdateUser)
+		users.Delete("/:user_id", handler.NewUserHandler().DeleteUser)
+	}
+
+	// 权限管理
+	permissions := users.Group("/permissions")
+	{
+		permissions.Post("/", handler.NewPermissionHandler().CreatePermission)
+		permissions.Get("/", handler.NewPermissionHandler().ListPermission)
+		permissions.Get("/:permission_id", handler.NewPermissionHandler().GetPermission)
+		permissions.Put("/:permission_id", handler.NewPermissionHandler().UpdatePermission)
+		permissions.Delete("/:permission_id", handler.NewPermissionHandler().DeletePermission)
+	}
+
+	// accesskey 管理
+	accesskeys := users.Group("/accesskeys")
+	{
+		accesskeys.Post("/", handler.NewAccessKeyHandler().CreateAccessKey)
+		accesskeys.Get("/", handler.NewAccessKeyHandler().ListAccessKey)
+		accesskeys.Get("/:accesskey", handler.NewAccessKeyHandler().GetAccessKey)
+		accesskeys.Delete("/:accesskey", handler.NewAccessKeyHandler().DeleteAccessKey)
+	}
 
 	// 应用管理路由
 	apps := envGroup.Group("/apps")
@@ -63,6 +91,7 @@ func SetupRoutes(app *fiber.App) {
 		items.Delete("/:key", itemController.DeleteItem)
 	}
 
+	// 版本管理路由
 	releases := namespaces.Group("/:namespace_name/releases")
 	{
 		releaseHandler := handler.NewReleaseHandler()
