@@ -36,12 +36,13 @@ type NamespaceRelease struct {
 	NamespaceID   uint64    `json:"-" gorm:"column:namespace_id;not null;index:idx_namespace_id"`
 	NamespaceName string    `json:"namespace_name" gorm:"column:namespace_name;size:128;not null;index:idx_namespace_name"`
 	ReleaseID     string    `json:"release_id" gorm:"column:release_id;size:64;not null;uniqueIndex:uk_release_id"`
+	ReleaseName   string    `json:"release_name" gorm:"column:release_name;size:128;not null"`
 	ReleaseTime   time.Time `json:"release_time" gorm:"column:release_time;default:CURRENT_TIMESTAMP"` // 不要 autoCreateTime
 	Operator      string    `json:"operator" gorm:"column:operator;size:64"`
 	Comment       string    `json:"comment" gorm:"column:comment;type:varchar(1024)"` // 原表是 VARCHAR(1024)
-	Config        []byte    `json:"config" gorm:"column:config;type:blob"`
-	CreateTime    time.Time `json:"create_time" gorm:"column:create_time;default:CURRENT_TIMESTAMP"`
-	UpdateTime    time.Time `json:"update_time" gorm:"column:update_time;default:CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"`
+	Config        []byte    `json:"-" gorm:"column:config;type:blob"`
+	CreateTime    time.Time `json:"-" gorm:"column:create_time;default:CURRENT_TIMESTAMP"`
+	UpdateTime    time.Time `json:"-" gorm:"column:update_time;default:CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"`
 
 	// 关联关系（可选加载）
 	App     App     `json:"-" gorm:"foreignKey:AppID;references:AppID"`

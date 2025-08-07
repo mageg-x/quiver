@@ -20,22 +20,91 @@ func NewItemService() *ItemService {
 	return &ItemService{}
 }
 
-func BulkMarkDeleted[T models.Item | models.ItemRelease](tx *gorm.DB, conditions map[string]interface{}) error {
+func BulkDeleted[T models.HasID](db *gorm.DB, conditions map[string]interface{}) error {
+	var lastID uint64 = 0
+	// 合并条件，确保只处理未删除的
+	finalConditions := make(map[string]interface{})
+	for k, v := range conditions {
+		finalConditions[k] = v
+	}
+	finalConditions["is_deleted"] = 1
 	for {
-		result := tx.Model(new(T)).Where(conditions).Limit(1000).Update("is_deleted", 1)
+		var items []T
+		result := db.Where(finalConditions).
+			Where("id > ?", lastID). // 推进条件
+			Order("id ASC").         // 稳定排序
+			Limit(1000).
+			Find(&items)
 
 		if result.Error != nil {
 			logger.GetLogger("quiver").Errorf("batch update %T failed %s", *new(T), result.Error)
 			return result.Error
 		}
 
-		if result.RowsAffected == 0 {
-			logger.GetLogger("quiver").Errorf("batch updated 0 records for %T", *new(T))
+		if len(items) == 0 {
+			break
+		} // 真正删完了
+
+		var ids []uint64
+		for _, item := range items {
+			ids = append(ids, item.GetID())
+			lastID = item.GetID() // 更新 lastID
+		}
+
+		// 使用 new(T) 创建泛型类型的指针
+		result = db.Where("id IN ?", ids).Delete(new(T))
+		if result.Error != nil {
+			logger.GetLogger("quiver").Errorf("delete %T failed: %v", *new(T), result.Error)
+			return result.Error
+		}
+
+		logger.GetLogger("quiver").Infof("batch deleted %d records from %T", result.RowsAffected, *new(T))
+	}
+	return nil
+}
+
+func BulkMarkDeleted[T interface{ GetID() uint64 }](db *gorm.DB, conditions map[string]interface{}) error {
+	var lastID uint64 = 0
+
+	// 合并条件，确保只处理未删除的
+	finalConditions := make(map[string]interface{})
+	for k, v := range conditions {
+		finalConditions[k] = v
+	}
+	finalConditions["is_deleted"] = 0
+	for {
+		var items []T
+		result := db.Where(finalConditions).
+			Where("id > ?", lastID).
+			Order("id ASC").
+			Limit(1000).
+			Find(&items)
+
+		if result.Error != nil {
+			logger.GetLogger("quiver").Errorf("query failed: %v", result.Error)
+			return result.Error
+		}
+
+		if len(items) == 0 {
 			break
 		}
 
-		logger.GetLogger("quiver").Infof("batch updated %d records for %T", result.RowsAffected, *new(T))
+		var ids []uint64
+		for _, item := range items {
+			ids = append(ids, item.GetID())
+			lastID = item.GetID()
+		}
+
+		// 批量更新
+		updateResult := db.Model(new(T)).Where("id IN ?", ids).Update("is_deleted", 1)
+		if updateResult.Error != nil {
+			logger.GetLogger("quiver").Errorf("update failed: %v", updateResult.Error)
+			return updateResult.Error
+		}
+
+		logger.GetLogger("quiver").Infof("batch update %d records from %T", result.RowsAffected, *new(T))
 	}
+
 	return nil
 }
 
@@ -148,7 +217,7 @@ func CheckACNKinDB(env, appName, clusterName, namespaceName, itemKey *string) (*
 		logger.GetLogger("quiver").Errorf("item %s not found", *itemKey)
 		return nil, errors.New("item not found")
 	}
-	ids.ItemID = item.ItemID
+	ids.ItemID = item.ID
 
 	return &ids, nil
 }
@@ -175,7 +244,7 @@ func (s *ItemService) SetItem(env string, appName, clusterName, namespaceName, k
 				NamespaceID: ids.NamespaceID,
 				K:           key,
 				V:           value,
-				KVId:        uint64(kvID),
+				KVId:        kvID,
 				IsReleased:  0,
 			}
 			err = db.Create(&item).Error
@@ -187,7 +256,7 @@ func (s *ItemService) SetItem(env string, appName, clusterName, namespaceName, k
 		// 更新现有配置项
 		item.V = value
 		item.IsReleased = 0
-		item.KVId = uint64(utils.MurmurHash64(key, value))
+		item.KVId = utils.MurmurHash64(key, value)
 
 		err = db.Model(&item).Updates(map[string]interface{}{
 			"v":           value,

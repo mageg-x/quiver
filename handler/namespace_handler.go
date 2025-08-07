@@ -209,3 +209,30 @@ func (c *NamespaceHandler) DeleteNamespace(ctx *fiber.Ctx) error {
 		"namespace_name": namespaceName,
 	})
 }
+
+func (c *NamespaceHandler) DiscardDraft(ctx *fiber.Ctx) error {
+	env := ctx.Locals("env").(string) // 类型断言
+	appName := ctx.Params("app_name")
+	clusterName := ctx.Params("cluster_name")
+	namespaceName := ctx.Params("namespace_name")
+
+	// 验证输入
+	valid, err := services.CheckACNKFormat(ctx, &env, &appName, &clusterName, &namespaceName, nil)
+	if !valid {
+		return err
+	}
+
+	err = c.namespaceService.DiscardDraft(env, appName, clusterName, namespaceName)
+	if err != nil {
+		return utils.BadRequest(ctx, err.Error())
+	}
+
+	response := fiber.Map{
+		"env":            env,
+		"app_name":       appName,
+		"cluster_name":   clusterName,
+		"namespace_name": namespaceName,
+	}
+
+	return utils.Success(ctx, 0, "success", response)
+}

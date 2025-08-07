@@ -742,7 +742,7 @@ curl -X DELETE "http://localhost:8080/api/v1/envs/dev/apps/slimstor/clusters/clu
 
 - **请求示例**:
 ```bash
-curl -X POST "http://localhost:8080/api/v1/envs/dev/apps/slimstor/clusters/cluster-1/namespaces/default/items" \
+curl -X POST "http://localhost:8080/api/v1/envs/dev/apps/slimstor/clusters/shenzhen/namespaces/default/items" \
      -H "accept: application/json" \
      -H "Content-Type: application/json" \
      -d '{
@@ -767,10 +767,135 @@ curl -X POST "http://localhost:8080/api/v1/envs/dev/apps/slimstor/clusters/clust
   }
 }
 ```
+---
+
+## 17. 获取命名空间下所有 Items（ListItem）
+
+**URL:**  
+`GET /api/v1/envs/{env}/apps/{app_name}/clusters/{cluster_name}/namespaces/{namespace_name}/items`
+
+**HTTP 方法:**  
+`GET`
 
 ---
 
-### 15. 获取 Item（GetItem）
+### Path 参数
+
+| 参数 | 必选 | 类型 | 说明 |
+|------|------|------|------|
+| `env` | 是 | `string` | 环境名，例如：`dev`, `prod` |
+| `app_name` | 是 | `string` | 应用名，例如：`slimstor` |
+| `cluster_name` | 是 | `string` | 集群名，例如：`shenzhen`, `cluster-1` |
+| `namespace_name` | 是 | `string` | 命名空间名称，例如：`default`, `database` |
+
+---
+
+### Query 参数（可选）
+
+| 参数 | 必选 | 类型 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `page` | 否 | `int` | `1` | 分页页码，从 1 开始 |
+| `size` | 否 | `int` | `20` | 每页返回数量，最大支持 `100` |
+| `search` | 否 | `string` | `""` | 按 `key` 字段进行模糊搜索（不区分大小写） |
+
+> ⚠️ 说明：`page` 和 `size` 用于分页控制；`search` 支持子串匹配，如 `search=database` 可匹配 `database.host`、`app.database.url` 等。
+
+---
+
+### 请求示例
+
+```bash
+curl -X GET "http://localhost:8080/api/v1/envs/dev/apps/slimstor/clusters/shenzhen/namespaces/default/items?page=1&size=10&search=database" \
+     -H "accept: application/json"
+```
+
+---
+
+### 成功响应 (200 OK)
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "items": [
+      {
+        "key": "database.host",
+        "value": "10.0.0.1",
+        "created_at": "2025-01-01T10:00:00Z",
+        "updated_at": "2025-01-01T10:00:00Z"
+      },
+      {
+        "key": "database.port",
+        "value": "3306",
+        "created_at": "2025-01-01T10:00:00Z",
+        "updated_at": "2025-01-01T10:00:00Z"
+      },
+      {
+        "key": "database.user",
+        "value": "admin",
+        "created_at": "2025-01-01T10:00:00Z",
+        "updated_at": "2025-01-01T10:00:00Z"
+      }
+    ],
+    "total": 3,
+    "page": 1,
+    "size": 10
+  }
+}
+```
+
+---
+
+### 响应字段说明
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `code` | `int` | 返回码，`0` 表示成功 |
+| `message` | `string` | 提示信息，成功时为 `"success"` |
+| `data` | `object` | 返回数据对象 |
+| &nbsp;&nbsp;`items` | `array` | 配置项列表 |
+| &nbsp;&nbsp;&nbsp;&nbsp;`key` | `string` | 配置项的键 |
+| &nbsp;&nbsp;&nbsp;&nbsp;`value` | `string` | 配置项的值 |
+| &nbsp;&nbsp;&nbsp;&nbsp;`created_at` | `string` (ISO 8601) | 创建时间 |
+| &nbsp;&nbsp;&nbsp;&nbsp;`updated_at` | `string` (ISO 8601) | 最后更新时间 |
+| &nbsp;&nbsp;`total` | `int` | 总记录数（用于分页） |
+| &nbsp;&nbsp;`page` | `int` | 当前页码 |
+| &nbsp;&nbsp;`size` | `int` | 每页数量 |
+
+---
+
+### 错误响应示例
+
+#### 404 Not Found - 命名空间不存在
+```json
+{
+  "code": 404,
+  "message": "namespace not found",
+  "data": null
+}
+```
+
+#### 400 Bad Request - 参数错误（如 page <= 0）
+```json
+{
+  "code": 400,
+  "message": "invalid page or size",
+  "data": null
+}
+```
+
+#### 500 Internal Server Error - 服务端异常
+```json
+{
+  "code": 500,
+  "message": "internal server error",
+  "data": null
+}
+```
+
+---
+### 16. 获取 Item（GetItem）
 
 - **URL**:  
   `GET /api/v1/envs/{env}/apps/{app_name}/clusters/{cluster_name}/namespaces/{namespace_name}/items/{key}`
@@ -790,7 +915,7 @@ curl -X POST "http://localhost:8080/api/v1/envs/dev/apps/slimstor/clusters/clust
 
 - **请求示例**:
 ```bash
-curl -X GET "http://localhost:8080/api/v1/envs/dev/apps/slimstor/clusters/cluster-1/namespaces/default/items/item_key" \
+curl -X GET "http://localhost:8080/api/v1/envs/dev/apps/slimstor/clusters/shenzhen/namespaces/default/items/item_key" \
      -H "accept: application/json"
 ```
 
@@ -800,20 +925,18 @@ curl -X GET "http://localhost:8080/api/v1/envs/dev/apps/slimstor/clusters/cluste
   "code": 0,
   "message": "success",
   "data": {
-    "item": {
       "key": "item_key",
       "value": "This is the value of the item.",
       "namespace_name": "default",
       "create_time": "2025-08-05T00:00:00+08:00",
       "update_time": "2025-08-05T00:00:00+08:00"
-    }
   }
 }
 ```
 
 ---
 
-### 16. 删除 Item（DeleteItem）
+### 17. 删除 Item（DeleteItem）
 
 - **URL**:  
   `DELETE /api/v1/envs/{env}/apps/{app_name}/clusters/{cluster_name}/namespaces/{namespace_name}/items/{key}`
@@ -843,170 +966,256 @@ curl -X DELETE "http://localhost:8080/api/v1/envs/dev/apps/slimstor/clusters/clu
   "code": 0,
   "message": "success",
   "data": {
-    "item": {
-      "key": "item_key",
-      "namespace_name": "default"
-    }
+    "key": "item_key",
+    "namespace_name": "default"
+  }
+}
+```
+---
+
+### 18. 发布命名空间配置（PublishRelease）
+
+- **URL**:  
+  `POST /api/v1/envs/{env}/apps/{app_name}/clusters/{cluster_name}/namespaces/{namespace_name}/releases`
+
+- **HTTP 方法**:  
+  `POST`
+
+- **Path 参数**:
+
+  | 参数             | 必选 | 类型   | 说明 |
+    |------------------|------|--------|------|
+  | `env`            | 是   | string | 环境名，如 `dev`、`prod` |
+  | `app_name`       | 是   | string | 应用名称 |
+  | `cluster_name`   | 是   | string | 集群名称 |
+  | `namespace_name` | 是   | string | 命名空间名称 |
+
+- **请求 Body (JSON)**:
+```json
+{
+  "operator": "stevenrao",
+  "release_name": "slimstor.shenzhen.default.20250805120000",
+  "comment": "This is a 备注."
+}
+```
+
+| 字段         | 必选 | 类型   | 说明 |
+  |--------------|------|--------|------|
+| `operator`     | 是   | string | 操作人，用于审计和展示 |
+| `release_name` | 否   | string | 自定义发布名称，若不传可由服务端生成 |
+| `comment`      | 否   | string | 发布备注，支持中文、特殊字符等 |
+
+- **请求示例**:
+```bash
+curl -X POST "http://localhost:8080/api/v1/envs/dev/apps/slimstor/clusters/shenzhen/namespaces/default/releases" \
+     -H "accept: application/json" \
+     -H "Content-Type: application/json" \
+     -d '{
+  "operator": "stevenrao",
+  "release_name": "slimstor.shenzhen.default.20250805120000",
+  "comment": "This is a 备注."
+}'
+```
+
+- **成功响应 (200 OK)**:
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "env": "dev",
+    "app_name": "slimstor",
+    "cluster_name": "shenzhen",
+    "namespace_name": "default",
+    "release_name": "slimstor.shenzhen.default.20250805120000",
+    "release_id": "r-20250805120000abcdef123456",
+    "release_time": "2025-08-05T12:00:00+08:00"
+  }
+}
+```
+---
+
+### 19. 列出命名空间的所有发布版本（ListReleases）
+
+- **URL**:  
+  `GET /api/v1/envs/{env}/apps/{app_name}/clusters/{cluster_name}/namespaces/{namespace_name}/releases`
+
+- **HTTP 方法**:  
+  `GET`
+
+- **Path 参数**:
+
+  | 参数             | 必选 | 类型   | 说明                          |
+    |------------------|------|--------|-------------------------------|
+  | `env`            | 是   | string | 环境名，如 `dev`、`prod`      |
+  | `app_name`       | 是   | string | 应用名称                      |
+  | `cluster_name`   | 是   | string | 集群名称                      |
+  | `namespace_name` | 是   | string | 命名空间名称                  |
+
+- **Query 参数 (可选)**:
+
+  | 参数         | 必选 | 类型   | 说明                           |
+    |--------------|------|--------|--------------------------------|
+  | `page`       | 否   | int    | 分页查询的页码，默认为 1        |
+  | `size`       | 否   | int    | 每页显示的数据条数，默认为 20  |
+  | `sort`       | 否   | string | 排序字段及顺序，例如 `release_time,desc` |
+
+- **请求示例**:
+```bash
+curl -X GET "http://localhost:8080/api/v1/envs/dev/apps/slimstor/clusters/shenzhen/namespaces/default/releases?page=1&size=20&sort=release_time,desc" \
+     -H "accept: application/json"
+```
+
+- **成功响应 (200 OK)**:
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "env": "dev",
+    "size": 100,
+    "total": 14,
+    "page": 1,
+    "releases": [
+      {
+        "app_name": "slimstor",
+        "cluster_name": "shenzhen",
+        "namespace_name": "default",
+        "release_id": "01987ac7-cbaf-7ce1-8168-99ca8b11d360",
+        "release_name": "slimstor.shenzhen.default.2025080512000022",
+        "release_time": "2025-08-05T15:09:31+08:00",
+        "operator": "stevenrao",
+        "comment": "再发布一次."
+      }
+    ]
   }
 }
 ```
 
 ---
 
-#### 9. 发布 Namespace
-> 将当前 item 表中的配置发布为一个新版本（对应 namespace_release）
+### 19. 获取发布详情（GetRelease）
 
-- **URL**:
-  `POST /api/v1/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/releases`
+- **URL**:  
+  `GET /api/v1/envs/{env}/apps/{app_name}/clusters/{cluster_name}/namespaces/{namespace_name}/releases/{release_id}`
 
-- **Path 参数**:
-
-  | 参数 | 必选 | 类型 | 说明 |
-  | --- | --- | --- | --- |
-  | env | 是 | string | 环境 |
-  | appId | 是 | string | 应用ID |
-  | clusterName | 是 | string | 集群名称 |
-  | namespaceName | 是 | string | 命名空间名称 |
-
-- **Body 参数**:
-
-  | 参数 | 必选 | 类型 | 说明 |
-  | --- | --- | --- | --- |
-  | operator | 是 | string | 操作人 |
-  | comment | 否 | string | 备注 |
-
-- **Body 示例**:
-    ```json
-    {
-      "operator": "zhangsan",
-      "comment": "发布数据库连接配置"
-    }
-    ```
-
-- **响应示例**:
-    ```json
-    {
-      "code": 0,
-      "message": "released",
-      "data": {
-        "releaseKey": "20250801-release-xyz",
-        "namespaceName": "application",
-        "releaseTime": "2025-08-01T15:20:00Z"
-      }
-    }
-    ```
-
----
-
-#### 10. 读取单个 Key-Value
-
-- **URL**:
-  `GET /api/v1/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/items/{key}`
+- **HTTP 方法**:  
+  `GET`
 
 - **Path 参数**:
 
-  | 参数 | 必选 | 类型 | 说明 |
-  | --- | --- | --- | --- |
-  | env | 是 | string | 环境 |
-  | appId | 是 | string | 应用ID |
-  | clusterName | 是 | string | 集群名称 |
-  | namespaceName | 是 | string | 命名空间名称 |
-  | key | 是 | string | 配置项Key |
+  | 参数             | 必选 | 类型   | 说明 |
+    |------------------|------|--------|------|
+  | `env`            | 是   | string | 环境名，如 `dev`、`prod` |
+  | `app_name`       | 是   | string | 应用名称 |
+  | `cluster_name`   | 是   | string | 集群名称 |
+  | `namespace_name` | 是   | string | 命名空间名称 |
+  | `release_id`     | 是   | string | 发布 ID，用于比对增量内容；传空字符串或无效 ID 时返回完整配置 |
+
+- **Query 参数**:  
+  无
 
 - **请求示例**:
-    ```http
-    GET /api/v1/envs/pro/apps/app123/clusters/default/namespaces/application/items/db.url
-    ```
+```bash
+curl -X GET "http://localhost:8080/api/v1/envs/dev/apps/slimstor/clusters/shenzhen/namespaces/default/releases/rel-20250805120000" \
+     -H "accept: application/json"
+```
 
-- **响应示例**:
-    ```json
+- **成功响应 (HTTP 200)**:
+
+  返回最新发布版本的完整配置及与指定 `release_id` 的增量差异（如提供有效历史版本）。
+
+```json
+{
+  "env": "dev",
+  "app_name": "slimstor",
+  "cluster_name": "shenzhen",
+  "namespace_name": "default",
+  "release_id": "rel-20250805120001",
+  "release_name": "slimstor.shenzhen.default.20250805120001",
+  "release_time": "2025-08-05T12:00:01Z",
+  "operator": "stevenrao",
+  "comment": "This is a 备注.",
+  "items": [
     {
-      "code": 0,
-      "message": "success",
-      "data": {
-        "key": "db.url",
-        "value": "jdbc:mysql://pro"
-      }
+      "key": "db.host",
+      "value": "10.10.1.1"
+    },
+    {
+      "key": "db.port",
+      "value": "3306"
     }
-    ```
+  ],
+  "changed": {
+    "added": ["db.port"],
+    "updated": ["db.host"],
+    "deleted": ["db.user"]
+  }
+}
+```
 
 ---
 
-#### 11. 写入单个 Key-Value
-> ⚠️ 仅更新 item 表，不触发发布
+### 20. 回滚发布（RollbackRelease）
 
-- **URL**:
-  `PUT /api/v1/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/items/{key}`
+- **URL**:  
+  `POST /api/v1/envs/{env}/apps/{app_name}/clusters/{cluster_name}/namespaces/{namespace_name}/releases/{release_id}/rollback`
 
-- **Path 参数**:
-
-  | 参数 | 必选 | 类型 | 说明 |
-  | --- | --- | --- | --- |
-  | env | 是 | string | 环境 |
-  | appId | 是 | string | 应用ID |
-  | clusterName | 是 | string | 集群名称 |
-  | namespaceName | 是 | string | 命名空间名称 |
-  | key | 是 | string | 配置项Key |
-
-- **Body 参数**:
-
-  | 参数 | 必选 | 类型 | 说明 |
-  | --- | --- | --- | --- |
-  | value | 是 | string | 新值 |
-  | operator | 是 | string | 操作人 |
-
-- **Body 示例**:
-    ```json
-    {
-      "value": "new_value",
-      "operator": "lisi"
-    }
-    ```
-
-- **响应示例**:
-    ```json
-    {
-      "code": 0,
-      "message": "item updated",
-      "data": {
-        "key": "db.url",
-        "value": "new_value",
-        "kvId": 999888777
-      }
-    }
-    ```
-
----
-
-#### 12. 删除单个 Key-Value
-> ⚠️ 仅删除 item 表中的条目，不触发发布
-
-- **URL**:
-  `DELETE /api/v1/envs/{env}/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/items/{key}`
+- **HTTP 方法**:  
+  `POST`
 
 - **Path 参数**:
 
-  | 参数 | 必选 | 类型 | 说明 |
-  | --- | --- | --- | --- |
-  | env | 是 | string | 环境 |
-  | appId | 是 | string | 应用ID |
-  | clusterName | 是 | string | 集群名称 |
-  | namespaceName | 是 | string | 命名空间名称 |
-  | key | 是 | string | 配置项Key |
+  | 参数             | 必选 | 类型   | 说明 |
+    |------------------|------|--------|------|
+  | `env`            | 是   | string | 环境名，如 `dev`、`prod` |
+  | `app_name`       | 是   | string | 应用名称 |
+  | `cluster_name`   | 是   | string | 集群名称 |
+  | `namespace_name` | 是   | string | 命名空间名称 |
+  | `release_id`     | 是   | string | 待回滚到的目标发布版本 ID |
+
+- **请求 Body (JSON)**:
+```json
+{
+  "operator": "stevenrao",
+  "comment": "回滚到稳定版本 v1.2.0"
+}
+```
+
+| 字段       | 必选 | 类型   | 说明 |
+|------------|------|--------|------|
+| `operator` | 是   | string | 操作人，用于审计和记录 |
+| `comment`  | 否   | string | 回滚原因或备注，可选字段，支持中文和特殊字符 |
 
 - **请求示例**:
-    ```http
-    DELETE /api/v1/envs/pro/apps/app123/clusters/default/namespaces/application/items/debug.flag
-    ```
+```bash
+curl -X POST "http://localhost:8080/api/v1/envs/prod/apps/slimstor/clusters/shenzhen/namespaces/default/releases/rel-20250805100000/rollback" \
+     -H "accept: application/json" \
+     -H "Content-Type: application/json" \
+     -d '{
+  "operator": "stevenrao",
+  "comment": "回滚到稳定版本 v1.2.0"
+}'
+```
 
-- **响应示例**:
-    ```json
-    {
-      "code": 0,
-      "message": "item deleted",
-      "data": null
-    }
-    ```
+- **成功响应 (HTTP 200)**:
+
+  回滚成功后，返回新生成的发布版本信息。
+
+```json
+{
+  "env": "prod",
+  "app_name": "slimstor",
+  "cluster_name": "shenzhen",
+  "namespace_name": "default",
+  "release_id": "rel-20250805153000",
+  "release_name": "rollback_to_rel-20250805100000",
+  "release_time": "2025-08-05T15:30:00Z",
+  "operator": "stevenrao",
+  "comment": "回滚到稳定版本 v1.2.0"
+}
+```
+---
 
 ---
 

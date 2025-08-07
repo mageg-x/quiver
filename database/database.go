@@ -2,11 +2,11 @@ package database
 
 import (
 	"fmt"
+	gormlogger "gorm.io/gorm/logger"
 	"sync"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	gormlogger "gorm.io/gorm/logger"
 	"quiver/config"
 	"quiver/logger"
 	"time"
@@ -39,6 +39,7 @@ func Connect(env string) (*gorm.DB, error) {
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 		Logger: gormlogger.Default.LogMode(gormlogger.Silent),
 	})
+
 	if err != nil {
 		logger.GetLogger("quiver").Errorf("Failed to connect to database %+v for env : %s error: %v",
 			dbConfig, env, err)

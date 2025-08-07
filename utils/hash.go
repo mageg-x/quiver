@@ -1,23 +1,23 @@
 package utils
 
 import (
+	"github.com/google/uuid"
 	"github.com/spaolacci/murmur3"
 )
 
 // MurmurHash64 计算key-value的MurmurHash64值
-func MurmurHash64(key, value string) int64 {
-	// 将key和value组合
-	data := key + ":" + value
+func MurmurHash64(key, value string) uint64 {
+	k := murmur3.Sum32([]byte(key))
+	v := murmur3.Sum32([]byte(value))
 
-	// 计算hash值
-	hash := murmur3.Sum64([]byte(data))
-
-	// 转换为int64（有符号）
-	return int64(hash)
+	// 把k 和 v 拼接成一个 uint64
+	return uint64(k) | (uint64(v) << 32)
 }
 
-// MurmurHash64Bytes 直接计算字节数组的hash值
-func MurmurHash64Bytes(data []byte) int64 {
-	hash := murmur3.Sum64(data)
-	return int64(hash)
+func GenerateReleaseID() (string, error) {
+	id, err := uuid.NewV7()
+	if err != nil {
+		return "", err
+	}
+	return id.String(), nil
 }

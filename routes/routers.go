@@ -46,13 +46,14 @@ func SetupRoutes(app *fiber.App) {
 	namespaces := clusters.Group("/:cluster_name/namespaces")
 	{
 		namespaceController := handler.NewNamespaceHandler()
-		namespaces.Post("/", namespaceController.CreateNamespace)                  // 创建命名空间
-		namespaces.Get("/", namespaceController.ListNamespace)                     // 获取命名空间列表
-		namespaces.Get("/:namespace_name", namespaceController.GetNamespace)       // 获取单个命名空间
-		namespaces.Delete("/:namespace_name", namespaceController.DeleteNamespace) // 删除命名空间
+		namespaces.Post("/", namespaceController.CreateNamespace)                     // 创建命名空间
+		namespaces.Get("/", namespaceController.ListNamespace)                        // 获取命名空间列表
+		namespaces.Get("/:namespace_name", namespaceController.GetNamespace)          // 获取单个命名空间
+		namespaces.Delete("/:namespace_name", namespaceController.DeleteNamespace)    // 删除命名空间
+		namespaces.Post("/:namespace_name/discard", namespaceController.DiscardDraft) // 丢弃草稿
 	}
 
-	// Item 管理路由
+	// Item(草稿，尚未发布的编辑数据) 管理路由
 	items := namespaces.Group("/:namespace_name/items")
 	{
 		itemController := handler.NewItemHandler()
@@ -62,13 +63,20 @@ func SetupRoutes(app *fiber.App) {
 		items.Delete("/:key", itemController.DeleteItem)
 	}
 
-	// 发布接口
-	//releases := namespaces.Group("/:namespace_name/releases")
-	//{
-	//	releaseHandler := handler.NewReleaseHandler()
-	//	releases.Post("/", releaseHandler.PublishRelease)
-	//	releases.Get("/:release_id", releaseHandler.GetRelease)
-	//}
+	releases := namespaces.Group("/:namespace_name/releases")
+	{
+		releaseHandler := handler.NewReleaseHandler()
+		releases.Post("/", releaseHandler.PublishRelease)       // 创建发布
+		releases.Get("/", releaseHandler.ListReleases)          // 获取发布列表
+		releases.Get("/:release_id", releaseHandler.GetRelease) // 获取发布详情
+	}
+
+	// 回滚
+	rollback := namespaces.Group("/:namespace_name/rollback")
+	{
+		rollbackHandler := handler.NewReleaseHandler()
+		rollback.Post("/:release_id", rollbackHandler.RollbackRelease) // 回滚发布
+	}
 
 	app.Use(middleware.NotFoundHandler)
 }
