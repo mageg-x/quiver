@@ -66,6 +66,18 @@ func ValidateItemKey(key string) bool {
 	return matched
 }
 
+func ValidateUserName(userName string) bool {
+	if len(userName) < 2 || len(userName) > 16 {
+		return false
+	}
+	// 不能_ 和 - 开头
+	if strings.ContainsRune("_.#@&=-", rune(userName[0])) {
+		return false
+	}
+	matched, _ := regexp.MatchString(`^[a-zA-Z0-9_.#@&=-]+$`, userName)
+	return matched
+}
+
 // ValidateEmail 验证邮箱格式
 func ValidateEmail(email string) bool {
 	if len(email) == 0 {

@@ -82,7 +82,7 @@ func (s *PermissionService) CreatePermission(env string, perm *models.Permission
 	return db.Create(perm).Error
 }
 
-func (s *PermissionService) GetPermission(env string, userID uint64, resourceId uint64) (*models.Permission, error) {
+func (s *PermissionService) GetPermission(env string, userID uint64, permissionId uint64) (*models.Permission, error) {
 	db := database.GetDB(env)
 	if db == nil {
 		logger.GetLogger("quiver").Errorf("db is nil for env %s", env)
@@ -92,8 +92,8 @@ func (s *PermissionService) GetPermission(env string, userID uint64, resourceId 
 		return nil, errors.New("user_id is required")
 	}
 
-	if resourceId == 0 {
-		return nil, errors.New("resource_id is required")
+	if permissionId == 0 {
+		return nil, errors.New("permissionId is required")
 	}
 
 	// 2. 校验 UserID 是否存在
@@ -107,8 +107,8 @@ func (s *PermissionService) GetPermission(env string, userID uint64, resourceId 
 	}
 
 	var perm models.Permission
-	if err := db.Where("id = ?", resourceId).First(&perm).Error; err != nil {
-		logger.GetLogger("quiver").Errorf("permission not found for id %d", resourceId)
+	if err := db.Where("id = ?", permissionId).First(&perm).Error; err != nil {
+		logger.GetLogger("quiver").Errorf("permission not found for id %d", permissionId)
 		return nil, errors.New("permission not found")
 	}
 	return &perm, nil
@@ -159,11 +159,17 @@ func (s *PermissionService) UpdatePermission(env string, update *models.Permissi
 		return nil, errors.New("user_id is required")
 	}
 
+	if update.ResourceType == "" {
+		logger.GetLogger("quiver").Errorf("resource_type is required")
+		return nil, errors.New("resource_type is required")
+	}
+
 	validResourceTypes := map[string]bool{"APP": true, "CLUSTER": true, "NAMESPACE": true}
 	if !validResourceTypes[update.ResourceType] {
 		logger.GetLogger("quiver").Errorf("invalid resource type %s", update.ResourceType)
 		return nil, errors.New("invalid resource type")
 	}
+
 	if update.ResourceID == 0 {
 		logger.GetLogger("quiver").Errorf("resource_id is nil")
 		return nil, errors.New("resource_id is required")
@@ -199,27 +205,27 @@ func (s *PermissionService) UpdatePermission(env string, update *models.Permissi
 		"CLUSTER":   &models.Cluster{},
 		"NAMESPACE": &models.Namespace{},
 	}
-	model, ok := modelMap[perm.ResourceType]
+	model, ok := modelMap[update.ResourceType]
 	if !ok {
 		logger.GetLogger("quiver").Errorf("unexpected resource type")
 		return nil, errors.New("unexpected resource type")
 	}
 	var count int64
-	err := db.Model(model).Where("id = ?", perm.ResourceID).Count(&count).Error
+	err := db.Model(model).Where("id = ?", update.ResourceID).Count(&count).Error
 	if err != nil {
-		logger.GetLogger("quiver").Errorf("error querying %s existence: %v", perm.ResourceType, err)
+		logger.GetLogger("quiver").Errorf("error querying %s existence: %v", update.ResourceType, err)
 		return nil, err
 	}
 	if count == 0 {
-		return nil, fmt.Errorf("%s with id %d does not exist", perm.ResourceType, perm.ResourceID)
+		return nil, fmt.Errorf("%s with id %d does not exist", update.ResourceType, update.ResourceID)
 	}
 
-	if err := db.Model(&perm).Updates(update).Error; err != nil {
+	if err := db.Model(&update).Updates(update).Error; err != nil {
 		logger.GetLogger("quiver").Errorf("error updating permission for id %d: %v", update.ID, err)
 		return nil, errors.New("update failed")
 	}
 
-	return s.GetPermission(env, update.UserID, update.ResourceID)
+	return s.GetPermission(env, update.UserID, update.ID)
 }
 
 func (s *PermissionService) DeletePermission(env string, userID uint64, resourceId uint64) error {

@@ -29,7 +29,7 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 		logger.GetLogger("quiver").Error("invalid request body")
 		return utils.BadRequest(c, "invalid request body")
 	}
-
+	logger.GetLogger("quiver").Infof("create user: %v", user)
 	if err := h.userService.CreateUser(env, &user); err != nil {
 		logger.GetLogger("quiver").Errorf("create user failed: %v", err)
 		if err.Error() == "username already exists" || err.Error() == "email already exists" || err.Error() == "phone already exists" {
@@ -39,7 +39,7 @@ func (h *UserHandler) CreateUser(c *fiber.Ctx) error {
 		logger.GetLogger("quiver").Errorf("create user failed: %v", err)
 		return utils.InternalError(c, err.Error())
 	}
-
+	user.Password = ""
 	return utils.Success(c, 0, "success", user)
 }
 
@@ -52,6 +52,11 @@ func (h *UserHandler) ListUser(c *fiber.Ctx) error {
 	if err != nil {
 		logger.GetLogger("quiver").Errorf("list user error: %v", err)
 		return utils.InternalError(c, err.Error())
+	}
+
+	// 清空 password
+	for i := range users {
+		users[i].Password = ""
 	}
 
 	return utils.Success(c, 0, "success", fiber.Map{
@@ -75,7 +80,7 @@ func (h *UserHandler) GetUser(c *fiber.Ctx) error {
 		logger.GetLogger("quiver").Errorf("user not found: %v", err)
 		return utils.BadRequest(c, "user not found")
 	}
-
+	user.Password = ""
 	return utils.Success(c, 0, "success", user)
 }
 
@@ -102,7 +107,7 @@ func (h *UserHandler) UpdateUser(c *fiber.Ctx) error {
 		logger.GetLogger("quiver").Errorf("error updating user: %v", err)
 		return utils.InternalError(c, err.Error())
 	}
-
+	user.Password = ""
 	return utils.Success(c, 0, "success", user)
 }
 

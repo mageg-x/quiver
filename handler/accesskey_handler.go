@@ -73,7 +73,7 @@ func (h *AccessKeyHandler) GetAccessKey(c *fiber.Ctx) error {
 	}
 
 	// 不返回 secret_key
-	ak.SecretKey = ""
+	//ak.SecretKey = ""
 	return utils.Success(c, 0, "success", ak)
 }
 

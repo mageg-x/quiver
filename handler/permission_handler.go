@@ -32,6 +32,7 @@ func (h *PermissionHandler) CreatePermission(c *fiber.Ctx) error {
 		return utils.BadRequest(c, "invalid request body")
 	}
 	perm.UserID = userID
+	logger.GetLogger("quiver").Infof("create permission: %v", perm)
 
 	if err := h.permService.CreatePermission(env, &perm); err != nil {
 		logger.GetLogger("quiver").Errorf("create permission failed: %v", err)
@@ -59,7 +60,7 @@ func (h *PermissionHandler) ListPermission(c *fiber.Ctx) error {
 
 func (h *PermissionHandler) GetPermission(c *fiber.Ctx) error {
 	env := c.Locals("env").(string)
-	id, err := c.ParamsInt("permission_id")
+	permissionId, err := c.ParamsInt("permission_id")
 	if err != nil {
 		return utils.BadRequest(c, "invalid permission_id")
 	}
@@ -70,7 +71,7 @@ func (h *PermissionHandler) GetPermission(c *fiber.Ctx) error {
 		return err
 	}
 
-	perm, err := h.permService.GetPermission(env, userID, uint64(id))
+	perm, err := h.permService.GetPermission(env, userID, uint64(permissionId))
 	if err != nil {
 		return utils.NotFound(c, "permission not found")
 	}
@@ -80,8 +81,8 @@ func (h *PermissionHandler) GetPermission(c *fiber.Ctx) error {
 
 func (h *PermissionHandler) UpdatePermission(c *fiber.Ctx) error {
 	env := c.Locals("env").(string)
-	id, err := c.ParamsInt("permission_id")
-	if err != nil {
+	permission_id, err := c.ParamsInt("permission_id")
+	if err != nil || permission_id <= 0 {
 		return utils.BadRequest(c, "invalid permission_id")
 	}
 
@@ -96,9 +97,15 @@ func (h *PermissionHandler) UpdatePermission(c *fiber.Ctx) error {
 		logger.GetLogger("quiver").Errorf("invalid request body: %v", err)
 		return utils.BadRequest(c, "invalid request body")
 	}
-	update.UserID = userID
-	update.ID = uint64(id)
 
+	if update.ResourceID == 0 || update.ResourceType == "" || update.Action == "" {
+		logger.GetLogger("quiver").Errorf("required params not exist")
+		return utils.BadRequest(c, "required params not exist")
+	}
+
+	update.UserID = userID
+	update.ID = uint64(permission_id)
+	logger.GetLogger("quiver").Infof("update permission: %+v", update)
 	perm, err := h.permService.UpdatePermission(env, &update)
 	if err != nil {
 		if err.Error() == "permission not found" {

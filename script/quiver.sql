@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS permission (
     resource_type    ENUM('APP', 'CLUSTER', 'NAMESPACE') NOT NULL,
     resource_id      BIGINT NOT NULL,           -- 指向 app.id / cluster.id / namespace.id
     resource_name    VARCHAR(128) NOT NULL,     -- 冗余，便于查询
+    action           VARCHAR(128) NOT NULL,
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 

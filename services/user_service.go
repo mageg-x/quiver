@@ -45,15 +45,30 @@ func (s *UserService) CreateUser(env string, user *models.User) error {
 	}
 
 	if len(user.UserName) == 0 || len(user.Password) == 0 {
-		logger.GetLogger("quiver").Errorf("username or password cannot be empty")
-		return errors.New("username or password cannot be empty")
+		logger.GetLogger("quiver").Errorf("user_name or password cannot be empty")
+		return errors.New("user_name or password cannot be empty")
+	}
+
+	if !utils.ValidateUserName(user.UserName) {
+		logger.GetLogger("quiver").Errorf("invalid user_name format")
+		return errors.New("invalid user_name format")
+	}
+
+	if user.Email != "" && !utils.ValidateEmail(user.Email) {
+		logger.GetLogger("quiver").Errorf("invalid email format")
+		return errors.New("invalid email format")
+	}
+
+	if user.Phone != "" && !utils.ValidatePhone(user.Phone) {
+		logger.GetLogger("quiver").Errorf("invalid phone format")
+		return errors.New("invalid phone format")
 	}
 
 	var existing models.User
-	if err := db.Where("username = ? ", user.UserName).First(&existing).Error; err == nil {
+	if err := db.Where("user_name = ? ", user.UserName).First(&existing).Error; err == nil {
 		if existing.UserName == user.UserName {
-			logger.GetLogger("quiver").Errorf("username %s already exists", user.UserName)
-			return errors.New("username already exists")
+			logger.GetLogger("quiver").Errorf("user_name %s already exists", user.UserName)
+			return errors.New("user_name already exists")
 		}
 		logger.GetLogger("quiver").Errorf("user %s already exists", user.UserName)
 		return errors.New("user already exists")
@@ -62,8 +77,6 @@ func (s *UserService) CreateUser(env string, user *models.User) error {
 		return err
 	}
 
-	user.CreateTime = db.NowFunc()
-	user.UpdateTime = db.NowFunc()
 	return db.Create(user).Error
 }
 
@@ -118,7 +131,7 @@ func (s *UserService) UpdateUser(env string, userID uint64, updates map[string]i
 	}
 
 	var user models.User
-	if err := db.Where("user_id = ?", userID).First(&user).Error; err != nil {
+	if err := db.Where("id = ?", userID).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.GetLogger("quiver").Errorf("user not found for user_id %d", userID)
 			return nil, errors.New("user not found")
@@ -143,7 +156,7 @@ func (s *UserService) DeleteUser(env string, userID uint64) error {
 	}
 
 	return db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("user_id = ?", userID).Delete(&models.User{}).Error; err != nil {
+		if err := tx.Where("id = ?", userID).Delete(&models.User{}).Error; err != nil {
 			logger.GetLogger("quiver").Errorf("delete user failed: %v", err)
 			return err
 		}

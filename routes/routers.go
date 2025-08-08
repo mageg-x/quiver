@@ -31,7 +31,7 @@ func SetupRoutes(app *fiber.App) {
 	}
 
 	// 权限管理
-	permissions := users.Group("/permissions")
+	permissions := users.Group("/:user_id/permissions")
 	{
 		permissions.Post("/", handler.NewPermissionHandler().CreatePermission)
 		permissions.Get("/", handler.NewPermissionHandler().ListPermission)
@@ -41,7 +41,7 @@ func SetupRoutes(app *fiber.App) {
 	}
 
 	// accesskey 管理
-	accesskeys := users.Group("/accesskeys")
+	accesskeys := users.Group("/:user_id/accesskeys")
 	{
 		accesskeys.Post("/", handler.NewAccessKeyHandler().CreateAccessKey)
 		accesskeys.Get("/", handler.NewAccessKeyHandler().ListAccessKey)
