@@ -19,7 +19,11 @@ type Cluster struct {
 	App *App `json:"-" gorm:"foreignKey:AppID;references:AppID"`
 }
 
+func (c *Cluster) GetUpdateTime() time.Time {
+	return c.UpdateTime
+}
+
 // TableName 指定表名
-func (Cluster) TableName() string {
+func (c *Cluster) TableName() string {
 	return "cluster"
 }

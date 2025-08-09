@@ -111,14 +111,14 @@ func (s *NamespaceService) DeleteNamespace(env string, appName, clusterName, nam
 
 	return db.Transaction(func(tx *gorm.DB) error {
 		// 更新  Item 记录的 deleted 字段
-		err := BulkMarkDeleted[models.Item](tx, map[string]interface{}{"namespace_id": ids.NamespaceID})
+		err := BulkMarkDeleted[*models.Item](tx, map[string]interface{}{"namespace_id": ids.NamespaceID})
 		if err != nil {
 			logger.GetLogger("quiver").Errorf("update items deleted for namespace %s failed %s", namespaceName, err)
 			return err
 		}
 
 		// 更新与  ItemRelease 记录的 deleted 字段
-		err = BulkMarkDeleted[models.ItemRelease](tx, map[string]interface{}{"namespace_id": ids.NamespaceID})
+		err = BulkMarkDeleted[*models.ItemRelease](tx, map[string]interface{}{"namespace_id": ids.NamespaceID})
 		if err != nil {
 			logger.GetLogger("quiver").Errorf("update items release deleted for namespace %s failed %s", namespaceName, err)
 			return err
@@ -148,12 +148,12 @@ func (s *NamespaceService) DiscardDraft(env, appName, clusterName, namespaceName
 
 	db := database.GetDB(env)
 
-	err = BulkDeleted[models.Item](db, map[string]interface{}{"namespace_id": ids.NamespaceID})
+	err = BulkDeleted[*models.Item](db, map[string]interface{}{"namespace_id": ids.NamespaceID})
 	if err != nil {
 		logger.GetLogger("quiver").Errorf("BulkDelete %s item table failed %s", namespaceName, err)
 	}
 
-	err = BulkDeleted[models.ItemRelease](db, map[string]interface{}{"namespace_id": ids.NamespaceID})
+	err = BulkDeleted[*models.ItemRelease](db, map[string]interface{}{"namespace_id": ids.NamespaceID})
 	if err != nil {
 		logger.GetLogger("quiver").Errorf("BulkDelete %s item release table failed %s", namespaceName, err)
 	}

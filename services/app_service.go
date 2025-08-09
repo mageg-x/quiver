@@ -122,14 +122,14 @@ func (s *AppService) DeleteApp(env string, appName string) error {
 
 	return db.Transaction(func(tx *gorm.DB) error {
 		// 更新  Item 记录的 deleted 字段
-		err := BulkMarkDeleted[models.Item](tx, map[string]interface{}{"app_id": app.AppID})
+		err := BulkMarkDeleted[*models.Item](tx, map[string]interface{}{"app_id": app.AppID})
 		if err != nil {
 			logger.GetLogger("quiver").Errorf("update items deleted for app %s failed %s", appName, err)
 			return err
 		}
 
 		// 更新与  ItemRelease 记录的 deleted 字段
-		err = BulkMarkDeleted[models.ItemRelease](tx, map[string]interface{}{"app_id": app.AppID})
+		err = BulkMarkDeleted[*models.ItemRelease](tx, map[string]interface{}{"app_id": app.AppID})
 		if err != nil {
 			logger.GetLogger("quiver").Errorf("update items release deleted for app %s failed %s", appName, err)
 			return err

@@ -33,6 +33,6 @@ func (u *User) CheckPassword(password string) bool {
 }
 
 // TableName 指定表名
-func (User) TableName() string {
+func (u *User) TableName() string {
 	return "user"
 }

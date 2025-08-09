@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -22,8 +23,12 @@ type Namespace struct {
 	Cluster *Cluster `json:"-" gorm:"foreignKey:ClusterID;references:ClusterID"`
 }
 
+func (n *Namespace) GetUpdateTime() time.Time {
+	return n.UpdateTime
+}
+
 // TableName 指定表名
-func (Namespace) TableName() string {
+func (n *Namespace) TableName() string {
 	return "namespace"
 }
 
@@ -37,19 +42,27 @@ type NamespaceRelease struct {
 	NamespaceName string    `json:"namespace_name" gorm:"column:namespace_name;size:128;not null;index:idx_namespace_name"`
 	ReleaseID     string    `json:"release_id" gorm:"column:release_id;size:64;not null;uniqueIndex:uk_release_id"`
 	ReleaseName   string    `json:"release_name" gorm:"column:release_name;size:128;not null"`
-	ReleaseTime   time.Time `json:"release_time" gorm:"column:release_time;default:CURRENT_TIMESTAMP"` // 不要 autoCreateTime
+	ReleaseTime   time.Time `json:"release_time" gorm:"column:create_time;autoCreateTime"`
 	Operator      string    `json:"operator" gorm:"column:operator;size:64"`
-	Comment       string    `json:"comment" gorm:"column:comment;type:varchar(1024)"` // 原表是 VARCHAR(1024)
+	Comment       string    `json:"comment" gorm:"column:comment;type:varchar(1024)"`
 	Config        []byte    `json:"-" gorm:"column:config;type:blob"`
-	CreateTime    time.Time `json:"-" gorm:"column:create_time;default:CURRENT_TIMESTAMP"`
-	UpdateTime    time.Time `json:"-" gorm:"column:update_time;default:CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"`
+	CreateTime    time.Time `json:"-" gorm:"column:create_time;autoCreateTime"`
+	UpdateTime    time.Time `json:"-" gorm:"column:update_time;autoUpdateTime"`
 
 	// 关联关系（可选加载）
-	App     App     `json:"-" gorm:"foreignKey:AppID;references:AppID"`
-	Cluster Cluster `json:"-" gorm:"foreignKey:ClusterID;references:AppID"`
+	KvIDs   []uint64      `json:"-" gorm:"-"`
+	Items   []ItemRelease `json:"-" gorm:"-"`
+	App     App           `json:"-" gorm:"foreignKey:AppID;references:AppID"`
+	Cluster Cluster       `json:"-" gorm:"foreignKey:ClusterID;references:AppID"`
+}
+
+func (nr *NamespaceRelease) GetID() uint64            { return nr.ID }
+func (nr *NamespaceRelease) GetUpdateTime() time.Time { return nr.UpdateTime }
+func (nr *NamespaceRelease) CacheKey(env string) string {
+	return fmt.Sprintf("release:latest:%s:%s:%s:%s", env, nr.AppName, nr.ClusterName, nr.NamespaceName)
 }
 
 // TableName 指定表名
-func (NamespaceRelease) TableName() string {
+func (nr *NamespaceRelease) TableName() string {
 	return "namespace_release"
 }

@@ -21,7 +21,11 @@ type App struct {
 	UpdateTime  time.Time `json:"update_time" gorm:"column:update_time;autoUpdateTime"`
 }
 
+func (a *App) GetUpdateTime() time.Time {
+	return a.UpdateTime
+}
+
 // TableName 指定表名
-func (App) TableName() string {
+func (a *App) TableName() string {
 	return "app"
 }

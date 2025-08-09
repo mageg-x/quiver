@@ -6,11 +6,15 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"os"
+	"quiver/cache"
 	"quiver/config"
 	"quiver/database"
 	LOG "quiver/logger"
 	"quiver/middleware"
 	"quiver/routes"
+	"quiver/services"
+	"time"
 )
 
 func main() {
@@ -20,6 +24,25 @@ func main() {
 	// 加载配置
 	conf, _ := config.LoadConfig("config/config.yaml")
 	log.Infof("get config : %+v", conf)
+
+	// 初始化缓存
+	err := cache.Init(cache.Options{MaxMemCost: 1 << 30, DiskDir: os.TempDir() + "/quiver/cache"})
+	if err != nil {
+		log.Warnf("init cache error: %v", err)
+	}
+	err = cache.AddWatch([]cache.WatchTable{
+		{Env: "dev", Name: "accesskey", Interval: 5 * time.Second, KeyUpdateCB: services.OnKeyUpdate4AccessKey},
+		{Env: "dev", Name: "permission", Interval: 5 * time.Second, KeyUpdateCB: services.OnKeyUpdate4Permission},
+		{Env: "dev", Name: "namespace_release", Interval: time.Second, KeyUpdateCB: services.OnKeyUpdate4Release},
+
+		{Env: "pro", Name: "accesskey", Interval: 5 * time.Second, KeyUpdateCB: services.OnKeyUpdate4AccessKey},
+		{Env: "pro", Name: "permission", Interval: 5 * time.Second, KeyUpdateCB: services.OnKeyUpdate4Permission},
+		{Env: "pro", Name: "namespace_release", Interval: time.Second, KeyUpdateCB: services.OnKeyUpdate4Release},
+	})
+
+	if err != nil {
+		log.Warnf("add watch error: %v", err)
+	}
 
 	// 创建 Fiber 应用
 	app := fiber.New(fiber.Config{

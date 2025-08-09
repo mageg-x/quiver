@@ -3,6 +3,7 @@ package utils
 import (
 	"github.com/RoaringBitmap/roaring/v2"
 	"github.com/RoaringBitmap/roaring/v2/roaring64"
+	"sync"
 )
 
 func Merge32(a, b []uint32) []uint32 {
@@ -35,4 +36,18 @@ func Diff(a, b []uint64) (onlyA, both, onlyB []uint64) {
 	return roaring64.AndNot(setA, setB).ToArray(),
 		roaring64.And(setA, setB).ToArray(),
 		roaring64.AndNot(setB, setA).ToArray()
+}
+
+// WithLock 是一个辅助函数，用于在特定代码块内自动锁定和解锁
+func WithLock(mu *sync.Mutex, fn func()) {
+	mu.Lock()
+	defer mu.Unlock()
+	fn()
+}
+
+func WithTryLock(mu *sync.Mutex, fn func()) {
+	if mu.TryLock() {
+		defer mu.Unlock()
+		fn()
+	}
 }

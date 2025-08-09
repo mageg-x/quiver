@@ -27,12 +27,16 @@ type Item struct {
 	Namespace *Namespace `json:"namespace,omitempty" gorm:"foreignKey:NamespaceID;references:NamespaceID"`
 }
 
-func (i Item) GetID() uint64 {
+func (i *Item) GetID() uint64 {
 	return i.ID
 }
 
+func (i *Item) GetUpdateTime() time.Time {
+	return i.UpdateTime
+}
+
 // TableName 指定表名
-func (Item) TableName() string {
+func (i *Item) TableName() string {
 	return "item"
 }
 
@@ -51,11 +55,15 @@ type ItemRelease struct {
 	UpdateTime time.Time `json:"update_time" gorm:"column:update_time;autoCreateTime"`
 }
 
-func (ir ItemRelease) GetID() uint64 {
+func (ir *ItemRelease) GetUpdateTime() time.Time {
+	return ir.UpdateTime
+}
+
+func (ir *ItemRelease) GetID() uint64 {
 	return ir.ID
 }
 
 // TableName 指定表名
-func (ItemRelease) TableName() string {
+func (ir *ItemRelease) TableName() string {
 	return "item_release"
 }

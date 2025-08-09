@@ -113,14 +113,14 @@ func (s *ClusterService) DeleteCluster(env string, appName, clusterName string) 
 
 	return db.Transaction(func(tx *gorm.DB) error {
 		// 更新  Item 记录的 deleted 字段
-		err := BulkMarkDeleted[models.Item](tx, map[string]interface{}{"cluster_id": ids.ClusterID})
+		err := BulkMarkDeleted[*models.Item](tx, map[string]interface{}{"cluster_id": ids.ClusterID})
 		if err != nil {
 			logger.GetLogger("quiver").Errorf("update items deleted for cluster %s failed %s", clusterName, err)
 			return err
 		}
 
 		// 更新与  ItemRelease 记录的 deleted 字段
-		err = BulkMarkDeleted[models.ItemRelease](tx, map[string]interface{}{"cluster_id": ids.ClusterID})
+		err = BulkMarkDeleted[*models.ItemRelease](tx, map[string]interface{}{"cluster_id": ids.ClusterID})
 		if err != nil {
 			logger.GetLogger("quiver").Errorf("update items release deleted for cluster %s failed %s", clusterName, err)
 			return err

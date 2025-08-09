@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type Permission struct {
 	ID           uint64    `json:"permission_id" gorm:"column:id;primaryKey;autoIncrement"`
@@ -13,7 +16,13 @@ type Permission struct {
 	UpdateTime   time.Time `json:"-" gorm:"column:update_time;autoUpdateTime"`
 }
 
+func (p *Permission) GetID() uint64            { return p.ID }
+func (p *Permission) GetUpdateTime() time.Time { return p.UpdateTime }
+func (p *Permission) CacheKey(env string) string {
+	return fmt.Sprintf("permission:%s:%d:%d", env, p.UserID, p.ID)
+}
+
 // TableName 指定表名
-func (Permission) TableName() string {
+func (p *Permission) TableName() string {
 	return "permission"
 }

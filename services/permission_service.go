@@ -7,6 +7,8 @@ import (
 	"quiver/database"
 	"quiver/logger"
 	"quiver/models"
+	"strconv"
+	"strings"
 )
 
 type PermissionService struct{}
@@ -15,6 +17,36 @@ func NewPermissionService() *PermissionService {
 	return &PermissionService{}
 }
 
+func OnKeyUpdate4Permission(env, key string) {
+	if len(env) == 0 || len(key) == 0 {
+		logger.GetLogger("quiver").Errorf("env %s or key %s is empty", env, key)
+		return
+	}
+
+	parts := strings.Split(key, ":")
+	if len(parts) != 4 {
+		logger.GetLogger("quiver").Errorf("key %s is invalid format", key)
+		return
+	}
+	strUserID, strPermissionID := parts[2], parts[3]
+	userId, err := strconv.ParseInt(strUserID, 10, 64)
+	if err != nil || userId <= 0 {
+		logger.GetLogger("quiver").Errorf("invalid userId: %s, %s", key, strUserID)
+		return
+	}
+
+	permissionId, err := strconv.ParseInt(strPermissionID, 10, 64)
+	if err != nil || permissionId <= 0 {
+		logger.GetLogger("quiver").Errorf("invalid permissionId: %s, %s", key, strPermissionID)
+		return
+	}
+
+	s := NewPermissionService()
+	_, err = s.GetPermission(env, uint64(userId), uint64(permissionId))
+	logger.GetLogger("quiver").Infof("refresh permission cache: %s, %d, %d, %v",
+		key, userId, permissionId, err)
+	return
+}
 func (s *PermissionService) CreatePermission(env string, perm *models.Permission) error {
 	db := database.GetDB(env)
 	if db == nil {

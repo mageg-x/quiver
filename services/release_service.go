@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"github.com/vmihailenco/msgpack/v5"
 	"gorm.io/gorm/clause"
+	"quiver/cache"
 	"quiver/database"
 	"quiver/logger"
 	"quiver/models"
 	"quiver/utils"
+	"strings"
+	"time"
 )
 
 // ReleaseService 命名空间服务
@@ -17,6 +20,31 @@ type ReleaseService struct{}
 // NewReleaseService 创建命名空间服务实例
 func NewReleaseService() *ReleaseService {
 	return &ReleaseService{}
+}
+func OnKeyUpdate4Release(env, key string) {
+	if len(env) == 0 || len(key) == 0 {
+		logger.GetLogger("quiver").Errorf("env %s or key %s is empty", env, key)
+		return
+	}
+
+	parts := strings.Split(key, ":")
+	if len(parts) != 6 {
+		logger.GetLogger("quiver").Errorf("key %s is invalid format", key)
+		return
+	}
+	appName, clusterName, namespaceName := parts[3], parts[4], parts[5]
+
+	if !utils.ValidateAppName(appName) || !utils.ValidateClusterName(clusterName) || !utils.ValidateNamespaceName(namespaceName) {
+		logger.GetLogger("quiver").Errorf("invalid app_name %s or cluster_name %s or namespace_name %s for key %s",
+			appName, clusterName, namespaceName, key)
+		return
+	}
+
+	s := NewReleaseService()
+	_, err := s.GetLatestReleaseAll(env, appName, clusterName, namespaceName)
+	logger.GetLogger("quiver").Infof("refresh release cache: %s %s %s %s for key %s, %v",
+		env, appName, clusterName, namespaceName, key, err)
+	return
 }
 
 // PublishRelease 发布指定命名空间的配置
@@ -184,91 +212,52 @@ func (s *ReleaseService) ListRelease(env, appName, clusterName, namespaceName st
 	return releases, total, nil
 }
 
-// GetRelease 获取特定命名空间
-func (s *ReleaseService) GetRelease(env, appName, clusterName, namespaceName, releaseId string) (map[string]interface{}, error) {
-	// 1. 校验并获取 namespace ID
-	ids, err := CheckACNKinDB(&env, &appName, &clusterName, &namespaceName, nil)
-	if err != nil {
-		return nil, err
+func (s *ReleaseService) GetFixedReleaseAll(env, releaseID string) (*models.NamespaceRelease, error) {
+	if releaseID == "" {
+		return nil, fmt.Errorf("releaseID is empty")
 	}
 
-	db := database.GetDB(env)
+	// 1、先检查缓存里面有没有
+	releaseKey := fmt.Sprintf("release:%s:%s", env, releaseID)
+	data, ok, _ := cache.Get(releaseKey)
+	if ok {
+		if len(data) > 0 {
+			nr := &models.NamespaceRelease{}
+			if err := msgpack.Unmarshal(data, nr); err != nil {
+				// 数据错误，删除缓存
+				_ = cache.Delete(releaseKey)
+				logger.GetLogger("quiver").Warnf("error unmarshaling release: %s, %v", releaseKey, err)
+			}
 
-	// 2. 获取最近一次的 release
-	var latestRelease models.NamespaceRelease
-	if err := db.Where("namespace_id = ?", ids.NamespaceID).
-		Order("id DESC").
-		First(&latestRelease).Error; err != nil {
-		logger.GetLogger("quiver").Errorf("no releases found for %s/%s/%s/%s", env, appName, clusterName, namespaceName)
+			logger.GetLogger("quiver").Infof("get release %s from cache success", releaseKey)
+			return nr, nil
+		} else {
+			// 数据已经破坏
+			_ = cache.Delete(releaseKey)
+		}
+	}
+
+	// 2、从数据库中获取
+	db := database.GetDB(env)
+	var baseRelease models.NamespaceRelease
+	if err := db.Where("release_id = ?", releaseID).First(&baseRelease).Error; err != nil {
+		logger.GetLogger("quiver").Warnf("Release %s not found", releaseID)
 		return nil, errors.New("no releases found")
 	}
 
-	var latestKvIDs []uint64
-
-	if releaseId != latestRelease.ReleaseID {
-		if err := msgpack.Unmarshal(latestRelease.Config, &latestKvIDs); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal latest config: %w", err)
+	var allKvIDs []uint64
+	if len(baseRelease.Config) > 0 {
+		if err := msgpack.Unmarshal(baseRelease.Config, &allKvIDs); err != nil {
+			logger.GetLogger("quiver").Errorf("failed to unmarshal %s config", releaseID)
+			return nil, errors.New("failed to get release data")
 		}
 	}
-
-	latestKK := make(map[uint32]uint64, len(latestKvIDs))
-	latestK := make([]uint32, 0, len(latestKvIDs)) // 预分配容量，提升性能
-	for _, hash := range latestKvIDs {
-		k := uint32(hash & 0xFFFFFFFF) // 取低 32 位
-		latestK = append(latestK, k)
-		latestKK[k] = hash
+	if len(allKvIDs) == 0 {
+		return nil, errors.New("no kv found")
 	}
 
-	logger.GetLogger("quiver").Errorf("latestKvIDs: %v", latestKvIDs)
-
-	// 3. 获取 base release（客户端传来的release版本）
-	var baseKvIDs []uint64
-
-	if releaseId != "" && releaseId != latestRelease.ReleaseID {
-		var baseRelease models.NamespaceRelease
-		if err := db.Where("release_id = ?", ids.NamespaceID, releaseId).First(&baseRelease).Error; err != nil {
-			logger.GetLogger("quiver").Errorf("Release %s not found", releaseId)
-		}
-
-		if len(baseRelease.Config) > 0 {
-			if err := msgpack.Unmarshal(baseRelease.Config, &baseKvIDs); err != nil {
-				logger.GetLogger("quiver").Errorf("failed to unmarshal %s config", releaseId)
-			}
-		}
-	}
-
-	baseKK := make(map[uint32]uint64, len(baseKvIDs))
-	baseK := make([]uint32, 0, len(baseKvIDs)) // 预分配容量，提升性能
-	for _, hash := range baseKvIDs {
-		k := uint32(hash & 0xFFFFFFFF) // 取低 32 位
-		baseK = append(baseK, k)
-		baseKK[k] = hash
-	}
-
-	// 4、得到增删改三部分
-	addK, bothK, deleteK := utils.Diff32(latestK, baseK)
-	// 计算新增，update, 和 delete 的 kvid中有变化的部分
-	var allKvIDs, addKvIDs, updateKvIDs, deleteKvIDs []uint64
-	for _, k := range bothK {
-		if latestKK[k] != baseKK[k] {
-			updateKvIDs = append(updateKvIDs, latestKK[k])
-		}
-	}
-	allKvIDs = append(allKvIDs, updateKvIDs...)
-	for _, k := range addK {
-		addKvIDs = append(addKvIDs, latestKK[k])
-	}
-	allKvIDs = append(allKvIDs, addKvIDs...)
-	for _, k := range deleteK {
-		deleteKvIDs = append(deleteKvIDs, baseKvIDs[k])
-	}
-	allKvIDs = append(allKvIDs, deleteKvIDs...)
-
-	logger.GetLogger("quiver").Errorf("item num %d vs %d", len(latestKvIDs)+len(baseKvIDs), len(allKvIDs))
-
-	// 4. 批量查询所有需要的 items（只查 key，value 仅用于 update 判断，但此处省略比较）
+	// 3、 根据kv_id 取 item_release 表获取数据
 	var allItems []models.ItemRelease
-	// 分批读出
 	for i := 0; i < len(allKvIDs); i += 1000 {
 		end := i + 1000
 		if end > len(allKvIDs) {
@@ -278,7 +267,7 @@ func (s *ReleaseService) GetRelease(env, appName, clusterName, namespaceName, re
 		var batch []models.ItemRelease
 		if err := db.Table("item_release").
 			Select("kv_id, `k`, `v`"). // 可优化为只查 key，但通常一起查
-			Where("namespace_id =? AND kv_id IN (?)", ids.NamespaceID, chunk).
+			Where("namespace_id =? AND kv_id IN (?)", baseRelease.NamespaceID, chunk).
 			Scan(&batch).Error; err != nil {
 			logger.GetLogger("quiver").Errorf("failed to query items: %s", err.Error())
 			return nil, err
@@ -287,47 +276,186 @@ func (s *ReleaseService) GetRelease(env, appName, clusterName, namespaceName, re
 		allItems = append(allItems, batch...)
 	}
 
-	// 5. 构建 kvid -> {k,v} 映射
+	baseRelease.Items = allItems
+	baseRelease.KvIDs = allKvIDs
+
+	// 4、写入cache 缓存
+	if data, err := msgpack.Marshal(&baseRelease); err == nil {
+		if len(data) > 0 && len(baseRelease.ReleaseID) > 0 {
+			releaseKey := fmt.Sprintf("release:%s:%s", env, baseRelease.ReleaseID)
+			_ = cache.Set(releaseKey, data, 3600*24*7*time.Second)
+		}
+	}
+	return &baseRelease, nil
+}
+
+func (s *ReleaseService) GetLatestReleaseAll(env, appName, clusterName, namespaceName string) (*models.NamespaceRelease, error) {
+	// 1、先检查缓存里面有没有
+	r := models.NamespaceRelease{AppName: appName, ClusterName: clusterName, NamespaceName: namespaceName}
+	data, ok, err := cache.Get(r.CacheKey(env))
+	logger.GetLogger("quiver").Infof("cache.Get %s %v %v %v", r.CacheKey(env), data, ok, err)
+	if ok {
+		if len(data) > 0 {
+			// 把data 转成 string
+			releaseID := string(data)
+			nr, err := s.GetFixedReleaseAll(env, releaseID)
+			logger.GetLogger("quiver").Warnf("get fixed release %s, err: %v", releaseID, err)
+			if err == nil && nr != nil {
+				return nr, nil
+			}
+		} else {
+			// 数据已经破坏
+			_ = cache.Delete(r.CacheKey(env))
+		}
+	}
+
+	// 2. 校验并获取 namespace ID
+	ids, err := CheckACNKinDB(&env, &appName, &clusterName, &namespaceName, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	db := database.GetDB(env)
+
+	// 3. 获取最近一次的 release kv_id
+	var latestRelease models.NamespaceRelease
+	if err := db.Where("namespace_id = ?", ids.NamespaceID).
+		Order("id DESC").
+		First(&latestRelease).Error; err != nil {
+		logger.GetLogger("quiver").Errorf("no releases found for %s/%s/%s/%s", env, appName, clusterName, namespaceName)
+		return nil, errors.New("no releases found")
+	}
+	if latestRelease.ReleaseID == "" || len(latestRelease.Config) == 0 {
+		return nil, errors.New("release not found")
+	}
+
+	// 尝试从缓存中获取
+	nr, err := s.GetFixedReleaseAll(env, latestRelease.ReleaseID)
+	if err != nil || nr == nil {
+		logger.GetLogger("quiver").Errorf("failed to get latest release %s %s data", env, latestRelease.ReleaseID)
+		return nil, fmt.Errorf("failed to get latest release data: %w", err)
+	}
+
+	latestRelease.Items = nr.Items
+	latestRelease.KvIDs = nr.KvIDs
+
+	// 写入cache 缓存
+	if data, err := msgpack.Marshal(&latestRelease); err == nil {
+		if len(data) > 0 && len(latestRelease.ReleaseID) > 0 {
+			_ = cache.Set(latestRelease.CacheKey(env), []byte(latestRelease.ReleaseID), 300*time.Second)
+			releaseKey := fmt.Sprintf("release:%s:%s", env, latestRelease.ReleaseID)
+			_ = cache.Set(releaseKey, data, 3600*24*7*time.Second)
+			logger.GetLogger("quiver").Infof("write %s %s to cache", latestRelease.CacheKey(env), releaseKey)
+		}
+	}
+	return &latestRelease, nil
+}
+
+// GetRelease 获取特定命名空间
+func (s *ReleaseService) GetRelease(env, appName, clusterName, namespaceName, releaseId string) (map[string]interface{}, error) {
+	// 1、从缓存中获取最近一次发布的release内容
+	latestRelease, err := s.GetLatestReleaseAll(env, appName, clusterName, namespaceName)
+	if err != nil {
+		logger.GetLogger("quiver").Errorf("get latest release all error: %v", err)
+		return nil, err
+	}
+	//logger.GetLogger("quiver").Infof("get latest release all: %v", latestRelease)
+
+	latestKvIDs := latestRelease.KvIDs
+	// 2、建立映射表，方便后续查找
+	latestKH := make(map[uint32]uint64, len(latestKvIDs))
+	latestK := make([]uint32, 0, len(latestKvIDs)) // 预分配容量，提升性能
+	for _, h := range latestKvIDs {
+		k := uint32(h & 0xFFFFFFFF) // 取低 32 位
+		latestK = append(latestK, k)
+		latestKH[k] = h
+	}
+
+	//logger.GetLogger("quiver").Infof("latestKvIDs: %v", latestKvIDs)
+
+	// 3. 获取 base release（客户端传来的release版本）
+	var baseKvIDs []uint64
+	baseRelease, err := s.GetFixedReleaseAll(env, releaseId)
+	if err == nil && baseRelease != nil {
+		baseKvIDs = baseRelease.KvIDs
+	}
+
+	// 4、同样建立映射表，方便后续查找
+	baseKH := make(map[uint32]uint64, len(baseKvIDs))
+	baseK := make([]uint32, 0, len(baseKvIDs)) // 预分配容量，提升性能
+	for _, h := range baseKvIDs {
+		k := uint32(h & 0xFFFFFFFF) // 取低 32 位
+		baseK = append(baseK, k)
+		baseKH[k] = h
+	}
+
+	// 5、得到增删改三部分
+	addK, bothK, deleteK := utils.Diff32(latestK, baseK)
+	// 计算新增，update, 和 delete 的 kvid中有变化的部分
+	var allKvIDs, addKvIDs, updateKvIDs, deleteKvIDs []uint64
+	for _, k := range bothK {
+		if latestKH[k] != baseKH[k] {
+			updateKvIDs = append(updateKvIDs, latestKH[k])
+		}
+	}
+	allKvIDs = append(allKvIDs, updateKvIDs...)
+	for _, k := range addK {
+		addKvIDs = append(addKvIDs, latestKH[k])
+	}
+	allKvIDs = append(allKvIDs, addKvIDs...)
+	for _, k := range deleteK {
+		deleteKvIDs = append(deleteKvIDs, baseKvIDs[k])
+	}
+	allKvIDs = append(allKvIDs, deleteKvIDs...)
+
+	logger.GetLogger("quiver").Infof("item del %d , updated %d, add %d",
+		len(deleteKvIDs), len(updateKvIDs), len(addKvIDs))
+
+	// 6. 构建 kvid -> {k,v} 映射
 	type KvPair struct {
 		Key   string
 		Value string
 	}
 
-	idToKv := make(map[uint64]KvPair, len(allItems))
-	for _, item := range allItems {
+	idToKv := make(map[uint64]KvPair, len(allKvIDs))
+
+	for _, item := range latestRelease.Items {
 		idToKv[item.KvID] = KvPair{
 			Key:   item.K,
 			Value: item.V,
 		}
 	}
-
-	// 6. 构造 changed 差异（只返回 key 列表）
-	addKeys, updateKeys, deleteKeys := []string{}, []string{}, []string{}
-	if len(baseKvIDs) > 0 {
-		for _, id := range addKvIDs {
-			if item, exists := idToKv[id]; exists {
-				addKeys = append(addKeys, item.Key)
-			}
-		}
-
-		for _, id := range updateKvIDs {
-			if item, exists := idToKv[id]; exists {
-				updateKeys = append(updateKeys, item.Key)
-			}
-		}
-
-		for _, id := range deleteKvIDs {
-			if item, exists := idToKv[id]; exists {
-				deleteKeys = append(deleteKeys, item.Key)
-				// 从 idToKv 中删除
-				delete(idToKv, id)
+	if baseRelease != nil {
+		for _, item := range baseRelease.Items {
+			idToKv[item.KvID] = KvPair{
+				Key:   item.K,
+				Value: item.V,
 			}
 		}
 	}
 
-	kvList := make([]KvPair, 0, len(idToKv))
-	for _, kv := range idToKv {
-		kvList = append(kvList, kv)
+	// 6. 构造 changed 差异（只返回 key 列表）
+	addKeys, updateKeys, deleteKeys := []string{}, []string{}, []string{}
+	kvList := make([]KvPair, 0, len(addKvIDs)+len(updateKvIDs))
+
+	for _, id := range addKvIDs {
+		if item, exists := idToKv[id]; exists {
+			addKeys = append(addKeys, item.Key)
+			kvList = append(kvList, KvPair{Key: item.Key, Value: item.Value})
+		}
+	}
+
+	for _, id := range updateKvIDs {
+		if item, exists := idToKv[id]; exists {
+			updateKeys = append(updateKeys, item.Key)
+			kvList = append(kvList, KvPair{Key: item.Key, Value: item.Value})
+		}
+	}
+
+	for _, id := range deleteKvIDs {
+		if item, exists := idToKv[id]; exists {
+			deleteKeys = append(deleteKeys, item.Key)
+		}
 	}
 
 	// 7、回idToKv 和 addKeys, updateKeys, deleteKeys
@@ -351,7 +479,8 @@ func (s *ReleaseService) GetRelease(env, appName, clusterName, namespaceName, re
 			"deleted": deleteKeys,
 		}
 	}
-	logger.GetLogger("quiver").Infof("GetRelease: %+v", ret)
+
+	//logger.GetLogger("quiver").Infof("GetRelease: %+v", ret)
 	return ret, nil
 }
 

@@ -7,12 +7,42 @@ import (
 	"quiver/database"
 	"quiver/logger"
 	"quiver/models"
+	"strconv"
+	"strings"
 )
 
 type AccessKeyService struct{}
 
 func NewAccessKeyService() *AccessKeyService {
 	return &AccessKeyService{}
+}
+func OnKeyUpdate4AccessKey(env, key string) {
+	if len(env) == 0 || len(key) == 0 {
+		logger.GetLogger("quiver").Errorf("env %s or key %s is empty", env, key)
+		return
+	}
+
+	parts := strings.Split(key, ":")
+	if len(parts) != 4 {
+		logger.GetLogger("quiver").Errorf("key %s is invalid format", key)
+		return
+	}
+	strUserID, accessKey := parts[2], parts[3]
+	userID, err := strconv.ParseInt(strUserID, 10, 64)
+	if err != nil || userID <= 0 {
+		logger.GetLogger("quiver").Errorf("invalid user_id: %s, %d", key, userID)
+		return
+	}
+
+	if len(accessKey) < 8 || len(accessKey) > 64 {
+		logger.GetLogger("quiver").Errorf("invalid access_key: %s, %s", key, accessKey)
+		return
+	}
+
+	s := NewAccessKeyService()
+	_, err = s.GetAccessKey(env, uint64(userID), accessKey)
+	logger.GetLogger("quiver").Infof("refresh accesskey cache: %s, %d, %s, %v", key, userID, accessKey, err)
+	return
 }
 
 func (s *AccessKeyService) generateKeys() (string, string, error) {
@@ -96,7 +126,7 @@ func (s *AccessKeyService) GetAccessKey(env string, userID uint64, accessKey str
 		return nil, errors.New("user does not exist")
 	}
 
-	if accessKey == "" {
+	if len(accessKey) < 8 || len(accessKey) > 64 {
 		logger.GetLogger("quiver").Errorf("access key cannot be empty")
 		return nil, errors.New("access key cannot be empty")
 	}
@@ -171,7 +201,7 @@ func (s *AccessKeyService) DeleteAccessKey(env string, userID uint64, accessKey 
 		return errors.New("user does not exist")
 	}
 
-	if accessKey == "" {
+	if len(accessKey) < 8 || len(accessKey) > 64 {
 		logger.GetLogger("quiver").Errorf("access key cannot be empty")
 		return errors.New("access key cannot be empty")
 	}

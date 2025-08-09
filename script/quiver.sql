@@ -5,7 +5,7 @@
 -- 如果数据库已存在，可选择删除后重建（生产环境慎用）
 -- DROP DATABASE IF EXISTS quiver_pro;
 -- CREATE DATABASE quiver_pro CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE quiver;
+-- USE quiver;
 
 -- 用户表
 CREATE TABLE IF NOT EXISTS user (
