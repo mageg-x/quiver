@@ -1,0 +1,16 @@
+database:
+  dev:
+    host: 192.168.8.115
+    port: 3306
+    user: xxl-job
+    password: ustD#d1Bey3Yem6
+    name: quiver
+  pro:
+    host: 192.168.8.115
+    port: 3306
+    user: xxl-job
+    password: ustD#d1Bey3Yem6
+    name: quiver_pro
+server:
+  port: 8080
+  host: 0.0.0.0
