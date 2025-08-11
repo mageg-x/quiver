@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS accesskey (
     access_key      VARCHAR(64) NOT NULL,     -- Access Key
     secret_key      VARCHAR(128) NOT NULL,    -- Secret Key (建议存储加密后的值)
 
+    expire_at       DATETIME NOT NULL,
     create_time     DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time     DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 

@@ -45,7 +45,7 @@ func OnKeyUpdate4AccessKey(env, key string) {
 	return
 }
 
-func (s *AccessKeyService) generateKeys() (string, string, error) {
+func (s *AccessKeyService) GenerateKeys() (string, string, error) {
 	ak := make([]byte, 16)
 	sk := make([]byte, 32)
 	if _, err := rand.Read(ak); err != nil {
@@ -80,7 +80,7 @@ func (s *AccessKeyService) CreateAccessKey(env string, userID uint64) (*models.A
 		return nil, errors.New("user does not exist")
 	}
 
-	ak, sk, err := s.generateKeys()
+	ak, sk, err := s.GenerateKeys()
 	if err != nil {
 		logger.GetLogger("quiver").Errorf("error generating keys: %v", err)
 		return nil, err

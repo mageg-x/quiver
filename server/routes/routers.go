@@ -20,6 +20,15 @@ func SetupRoutes(app *fiber.App) {
 
 	//在 envGroup 上应用 EnvMiddleware
 	envGroup.Use(middleware.EnvMiddleware())
+
+	auth := envGroup.Group("/auth")
+	{
+		authHandler := handler.NewAuthHandler()
+		auth.Post("/login", authHandler.Login)
+		auth.Post("/logout", authHandler.Logout)
+		auth.Post("/refresh", authHandler.RefreshToken)
+	}
+
 	// 用户管理 （只允许管理员）
 	users := envGroup.Group("/users")
 	{
@@ -106,6 +115,9 @@ func SetupRoutes(app *fiber.App) {
 		rollbackHandler := handler.NewReleaseHandler()
 		rollback.Post("/:release_id", rollbackHandler.RollbackRelease) // 回滚发布
 	}
+
+	// 灰度发布
+	//gray := namespaces.Group("/:namespace_name/gray")
 
 	app.Use(middleware.NotFoundHandler)
 }

@@ -44,6 +44,10 @@ func Conflict(c *fiber.Ctx, message string) error {
 	return Error(c, 409, message, nil)
 }
 
+func Unauthorized(c *fiber.Ctx, message string) error {
+	return Error(c, 401, message, nil)
+}
+
 // InternalError 500错误
 func InternalError(c *fiber.Ctx, message string) error {
 	return Error(c, 500, message, nil)

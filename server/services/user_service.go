@@ -80,6 +80,24 @@ func (s *UserService) CreateUser(env string, user *models.User) error {
 	return db.Create(user).Error
 }
 
+func (s *UserService) GetUserByName(env string, userName string) (*models.User, error) {
+	db := database.GetDB(env)
+	if db == nil {
+		logger.GetLogger("quiver").Errorf("db is nil for env %s", env)
+		return nil, errors.New("db not initialized")
+	}
+
+	var user models.User
+	if err := db.Where("user_name = ?", userName).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.GetLogger("quiver").Errorf("user not found for user_name %s", userName)
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (s *UserService) GetUser(env string, userID uint64) (*models.User, error) {
 	db := database.GetDB(env)
 	if db == nil {
