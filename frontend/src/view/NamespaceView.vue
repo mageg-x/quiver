@@ -1,17 +1,79 @@
 <template>
     <div class="namespace-view p-6">
-        <!-- 操作工具栏 -->
+        <!-- 头部信息区域 -->
         <div class="bg-white rounded-xl shadow-sm p-5 mb-6">
             <div class="flex flex-wrap items-center justify-between">
                 <div>
                     <h2 class="text-2xl font-bold text-gray-800 flex items-center">
                         <i class="fas fa-folder text-primary-600 mr-3"></i>
                         命名空间管理
-                        <span class="ml-3 text-base font-normal bg-primary-100 text-primary-800 px-3 py-1 rounded-full">
-                            当前命名空间: {{ namespaceName }}
-                        </span>
                     </h2>
-                    <div class="mt-2 text-sm text-gray-600 flex items-center">
+
+                    <!-- 应用/集群/命名空间导航 -->
+                    <div class="mt-3 flex items-center space-x-2">
+                        <!-- 应用选择 -->
+                        <div class="relative">
+                            <div class="nav-dropdown" @click="toggleAppDropdown">
+                                <span class="flex items-center">
+                                    <i class="fas fa-cube mr-2 text-blue-500"></i>
+                                    {{ selectedApp.name }}
+                                </span>
+                                <i class="fas fa-chevron-down ml-2 text-xs"></i>
+                            </div>
+                            <div v-if="showAppDropdown"
+                                class="absolute z-10 mt-1 w-48 bg-white shadow-lg rounded-md py-1">
+                                <div v-for="app in apps" :key="app.id" @click="selectApp(app)"
+                                    class="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center">
+                                    <i class="fas fa-cube mr-2 text-blue-500"></i>
+                                    {{ app.name }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <span class="text-gray-400"><i class="fas fa-chevron-right"></i></span>
+
+                        <!-- 集群选择 -->
+                        <div class="relative">
+                            <div class="nav-dropdown" @click="toggleClusterDropdown">
+                                <span class="flex items-center">
+                                    <i class="fas fa-server mr-2 text-green-500"></i>
+                                    {{ selectedCluster.name }}
+                                </span>
+                                <i class="fas fa-chevron-down ml-2 text-xs"></i>
+                            </div>
+                            <div v-if="showClusterDropdown"
+                                class="absolute z-10 mt-1 w-48 bg-white shadow-lg rounded-md py-1">
+                                <div v-for="cluster in clusters" :key="cluster.id" @click="selectCluster(cluster)"
+                                    class="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center">
+                                    <i class="fas fa-server mr-2 text-green-500"></i>
+                                    {{ cluster.name }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <span class="text-gray-400"><i class="fas fa-chevron-right"></i></span>
+
+                        <!-- 命名空间选择 -->
+                        <div class="relative">
+                            <div class="nav-dropdown" @click="toggleNamespaceDropdown">
+                                <span class="flex items-center">
+                                    <i class="fas fa-folder mr-2 text-purple-500"></i>
+                                    {{ selectedNamespace.name }}
+                                </span>
+                                <i class="fas fa-chevron-down ml-2 text-xs"></i>
+                            </div>
+                            <div v-if="showNamespaceDropdown"
+                                class="absolute z-10 mt-1 w-64 bg-white shadow-lg rounded-md py-1">
+                                <div v-for="ns in namespaces" :key="ns.id" @click="selectNamespace(ns)"
+                                    class="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center">
+                                    <i class="fas fa-folder mr-2 text-purple-500"></i>
+                                    {{ ns.name }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 text-sm text-gray-600 flex items-center">
                         <span class="font-medium">最新版本:</span>
                         <span class="ml-2 bg-gray-100 px-2 py-1 rounded font-mono">release-{{ currentReleaseId }}</span>
                         <span class="ml-4 font-medium">最后发布时间:</span>
@@ -86,25 +148,25 @@
                 <table class="min-w-full">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="table-header">
                                 发布状态
                             </th>
-                            <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="table-header">
                                 Key
                             </th>
-                            <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="table-header">
                                 类型
                             </th>
-                            <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="table-header">
                                 Value
                             </th>
-                            <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="table-header">
                                 最后修改人
                             </th>
-                            <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="table-header">
                                 最后修改时间
                             </th>
-                            <th class="py-3 px-6 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th class="table-header text-right">
                                 操作
                             </th>
                         </tr>
@@ -113,7 +175,7 @@
                         <tr v-for="(item, index) in items" :key="index" class="hover:bg-gray-50 transition-colors">
                             <td class="py-4 px-6 whitespace-nowrap">
                                 <span :class="{
-                                    'px-3 py-1 rounded-full text-xs font-medium': true,
+                                    'status-badge': true,
                                     'bg-green-100 text-green-800': item.status === '已发布',
                                     'bg-yellow-100 text-yellow-800': item.status === '待发布',
                                     'bg-gray-100 text-gray-800': item.status === '已下线'
@@ -128,7 +190,14 @@
                                 </div>
                             </td>
                             <td class="py-4 px-6 whitespace-nowrap text-sm text-gray-500">
-                                <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
+                                <span :class="{
+                                    'type-badge': true,
+                                    'bg-blue-100 text-blue-800': item.type === '数字',
+                                    'bg-green-100 text-green-800': item.type === '字符串',
+                                    'bg-purple-100 text-purple-800': item.type === '布尔值',
+                                    'bg-indigo-100 text-indigo-800': item.type === 'JSON',
+                                    'bg-yellow-100 text-yellow-800': item.type === '加密文本'
+                                }">
                                     {{ item.type }}
                                 </span>
                             </td>
@@ -182,28 +251,29 @@
                 <div class="flex items-center space-x-4">
                     <div class="flex items-center text-sm text-gray-700">
                         每页显示
-                        <select
+                        <select v-model="itemsPerPage"
                             class="mx-2 px-2 py-1 border border-gray-300 rounded focus:ring-primary-500 focus:border-primary-500">
-                            <option>10</option>
-                            <option>20</option>
-                            <option>50</option>
+                            <option :value="10">10</option>
+                            <option :value="20">20</option>
+                            <option :value="50">50</option>
                         </select>
                         项
                     </div>
 
                     <div class="flex items-center space-x-1">
-                        <button class="p-2 rounded hover:bg-gray-200 disabled:opacity-50" :disabled="currentPage === 1">
+                        <button class="p-2 rounded hover:bg-gray-200 disabled:opacity-50" :disabled="currentPage === 1"
+                            @click="currentPage = currentPage - 1">
                             <i class="fas fa-chevron-left"></i>
                         </button>
                         <button v-for="page in visiblePages" :key="page"
                             class="w-8 h-8 rounded flex items-center justify-center" :class="{
                                 'bg-primary-500 text-white': currentPage === page,
                                 'text-gray-700 hover:bg-gray-200': currentPage !== page
-                            }">
+                            }" @click="currentPage = page">
                             {{ page }}
                         </button>
                         <button class="p-2 rounded hover:bg-gray-200 disabled:opacity-50"
-                            :disabled="currentPage === totalPages">
+                            :disabled="currentPage === totalPages" @click="currentPage = currentPage + 1">
                             <i class="fas fa-chevron-right"></i>
                         </button>
                     </div>
@@ -271,7 +341,73 @@
 import { ref, computed } from 'vue';
 
 // 模拟数据
-const namespaceName = ref('payment-service');
+const apps = ref([
+    { id: 1, name: '支付系统' },
+    { id: 2, name: '用户中心' },
+    { id: 3, name: '订单系统' },
+    { id: 4, name: '库存管理' }
+]);
+
+const clusters = ref([
+    { id: 1, name: '生产集群' },
+    { id: 2, name: '测试集群' },
+    { id: 3, name: '开发集群' }
+]);
+
+const namespaces = ref([
+    { id: 1, name: 'payment-service' },
+    { id: 2, name: 'gateway-config' },
+    { id: 3, name: 'database-config' },
+    { id: 4, name: 'redis-config' },
+    { id: 5, name: 'mq-config' }
+]);
+
+// 默认选中
+const selectedApp = ref(apps.value[0]);
+const selectedCluster = ref(clusters.value[0]);
+const selectedNamespace = ref(namespaces.value[0]);
+
+// 下拉菜单状态
+const showAppDropdown = ref(false);
+const showClusterDropdown = ref(false);
+const showNamespaceDropdown = ref(false);
+
+// 切换下拉菜单
+const toggleAppDropdown = () => {
+    showAppDropdown.value = !showAppDropdown.value;
+    showClusterDropdown.value = false;
+    showNamespaceDropdown.value = false;
+};
+
+const toggleClusterDropdown = () => {
+    showClusterDropdown.value = !showClusterDropdown.value;
+    showAppDropdown.value = false;
+    showNamespaceDropdown.value = false;
+};
+
+const toggleNamespaceDropdown = () => {
+    showNamespaceDropdown.value = !showNamespaceDropdown.value;
+    showAppDropdown.value = false;
+    showClusterDropdown.value = false;
+};
+
+// 选择选项
+const selectApp = (app) => {
+    selectedApp.value = app;
+    showAppDropdown.value = false;
+};
+
+const selectCluster = (cluster) => {
+    selectedCluster.value = cluster;
+    showClusterDropdown.value = false;
+};
+
+const selectNamespace = (namespace) => {
+    selectedNamespace.value = namespace;
+    showNamespaceDropdown.value = false;
+};
+
+// 其他数据
 const currentReleaseId = ref('20230811001');
 const lastPublishTime = ref('2023-08-11 14:30:22');
 const types = ref(['字符串', '数字', '布尔值', 'JSON', '加密文本']);
@@ -406,14 +542,39 @@ const copyValue = (value) => {
 };
 </script>
 
+<script>
+export default { name: 'NamespaceView' }
+</script>
+
 <style scoped>
 @reference "tailwindcss";
+
 .namespace-view {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .btn {
     @apply px-4 py-2 rounded-lg transition-colors duration-200 flex items-center font-medium text-sm;
+}
+
+.card {
+    @apply bg-white rounded-xl shadow-sm;
+}
+
+.status-badge {
+    @apply px-3 py-1 rounded-full text-xs font-medium;
+}
+
+.type-badge {
+    @apply px-2 py-1 rounded text-xs font-medium;
+}
+
+.table-header {
+    @apply py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
+}
+
+.nav-dropdown {
+    @apply bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm flex items-center cursor-pointer hover:bg-gray-50;
 }
 
 table {

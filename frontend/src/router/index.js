@@ -14,40 +14,50 @@ const router = createRouter({
       component: () => import("@/view/HomeView.vue"),
       children: [
         {
-          path: "",
+          path: "/",
           name: "main",
           component: () => import("@/view/MainView.vue"),
         },
         {
-          path: 'apps',
-          name: 'apps',
-          component: () => import('@/view/AppView.vue')
+          path: "apps",
+          name: "apps",
+          component: () => import("@/view/AppView.vue"),
         },
         {
-          path: 'clusters',
-          name: 'clusters',
-          component: () => import('@/view/ClusterView.vue'),
-          props: true
+          path: "clusters",
+          name: "clusters",
+          component: () => import("@/view/ClusterView.vue"),
+          props: true,
         },
         {
-          path: 'namespaces',
-          name: 'namespaces',
-          component: () => import('@/view/NamespaceView.vue'),
-          props: true
+          path: "namespaces",
+          name: "namespaces",
+          component: () => import("@/view/NamespaceView.vue"),
+          props: true,
         },
         {
-          path: 'users',
-          name: 'users',
-          component: () => import('@/view/UserView.vue'),
-          props: true
+          path: "permissions",
+          name: "permissions",
+          component: () => import("@/view/PermissionView.vue"),
+          props: true,
         },
         {
-          path: 'permissions',
-          name: 'permissions',
-          component: () => import('@/view/PermissionView.vue'),
-          props: true
+          path: "users",
+          name: "users",
+          component: () => import("@/view/UserView.vue"),
+          props: true,
+        },
+        {
+          path: "tokens",
+          name: "tokens",
+          component: () => import("@/view/TokenView.vue"),
+          props: true,
         },
       ],
+    },
+    {
+      path: "/:pathMatch(.*)*",
+      redirect: "/",
     },
   ],
 });

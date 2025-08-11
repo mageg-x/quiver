@@ -51,3 +51,7 @@ func WithTryLock(mu *sync.Mutex, fn func()) {
 		fn()
 	}
 }
+
+func Ptr[T any](v T) *T {
+	return &v
+}

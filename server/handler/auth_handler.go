@@ -61,7 +61,7 @@ func (h *AuthHandler) Login(ctx *fiber.Ctx) error {
 		UserID:     u.UserID,
 		AccessKey:  ak,
 		SecretKey:  sk,
-		ExpireAt:   time.Now().Add(time.Hour * 24),
+		ExpireAt:   utils.Ptr(time.Now().Add(time.Hour * 24)),
 		CreateTime: time.Now(),
 		UpdateTime: time.Now(),
 	}
@@ -73,7 +73,7 @@ func (h *AuthHandler) Login(ctx *fiber.Ctx) error {
 	}
 
 	return utils.Success(ctx, 0, "success", LoginResponse{
-		ExpiresAt: accessKey.ExpireAt,
+		ExpiresAt: *accessKey.ExpireAt,
 		Token:     accessKey.AccessKey,
 		UserName:  u.UserName,
 	})

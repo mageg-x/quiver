@@ -283,7 +283,7 @@ func (s *ReleaseService) GetFixedReleaseAll(env, releaseID string) (*models.Name
 	if data, err := msgpack.Marshal(&baseRelease); err == nil {
 		if len(data) > 0 && len(baseRelease.ReleaseID) > 0 {
 			releaseKey := fmt.Sprintf("release:%s:%s", env, baseRelease.ReleaseID)
-			_ = cache.Set(releaseKey, data, 3600*24*7*time.Second)
+			_ = cache.Set(releaseKey, data, 24*30*time.Hour)
 		}
 	}
 	return &baseRelease, nil
@@ -344,7 +344,7 @@ func (s *ReleaseService) GetLatestReleaseAll(env, appName, clusterName, namespac
 		if len(data) > 0 && len(latestRelease.ReleaseID) > 0 {
 			_ = cache.Set(latestRelease.CacheKey(env), []byte(latestRelease.ReleaseID), 300*time.Second)
 			releaseKey := fmt.Sprintf("release:%s:%s", env, latestRelease.ReleaseID)
-			_ = cache.Set(releaseKey, data, 3600*24*7*time.Second)
+			_ = cache.Set(releaseKey, data, 24*30*time.Hour)
 			logger.GetLogger("quiver").Infof("write %s %s to cache", latestRelease.CacheKey(env), releaseKey)
 		}
 	}

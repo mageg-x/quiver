@@ -722,6 +722,10 @@ onMounted(() => {
 });
 </script>
 
+<script>
+export default { name: 'UserView' }
+</script>
+
 <style scoped>
 .user-management {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

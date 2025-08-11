@@ -118,6 +118,4 @@ func SetupRoutes(app *fiber.App) {
 
 	// 灰度发布
 	//gray := namespaces.Group("/:namespace_name/gray")
-
-	app.Use(middleware.NotFoundHandler)
 }

@@ -766,6 +766,11 @@ onMounted(() => {
 });
 </script>
 
+
+<script>
+export default { name: 'PermissionView' }
+</script>
+
 <style scoped>
 .permission-management {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

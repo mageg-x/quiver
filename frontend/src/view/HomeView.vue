@@ -44,6 +44,11 @@
                 class="layout-sidebar flex flex-col bg-white h-full shadow-sidebar transition-all duration-300 ease-in-out">
                 <div class="p-4 flex-1 overflow-y-auto">
                     <div class="space-y-1 mb-6">
+                        <router-link to="/" class="menu-item flex items-center px-4 py-3 rounded-lg"
+                            active-class="" exact-active-class="router-link-active">
+                            <i class="fas fa-home text-lg"></i>
+                            <span class="menu-text ml-3 transition-all duration-300">首页</span>
+                        </router-link>
                         <router-link to="/apps" class="menu-item flex items-center px-4 py-3 rounded-lg"
                             active-class="router-link-active">
                             <i class="fas fa-th-large text-lg"></i>
@@ -73,6 +78,12 @@
                             <i class="fas fa-users text-lg"></i>
                             <span class="menu-text ml-3 transition-all duration-300">用户管理</span>
                         </router-link>
+
+                        <router-link to="/tokens" class="menu-item flex items-center px-4 py-3 rounded-lg"
+                            active-class="router-link-active">
+                            <i class="fas fa-key text-lg"></i>
+                            <span class="menu-text ml-3 transition-all duration-300">令牌管理</span>
+                        </router-link>
                     </div>
                     <hr class="h-px my-8 bg-gray-200 border-0 dark:bg-gray-700">
                     <div class="mt-8  pt-4">
@@ -100,7 +111,10 @@
 
             <!-- 主内容区 -->
             <div class="layout-main flex-1 overflow-auto bg-gray-50">
-                <router-view />
+                <div v-if="hasPermission" class="h-full w-full">
+                    <router-view />
+                </div>
+                <DenieView v-else class="h-full w-full" />
             </div>
         </div>
     </div>
@@ -110,6 +124,7 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
+import DenieView from '@/view/DenieView.vue'
 
 const router = useRouter();
 const toast = useToast();
@@ -117,6 +132,9 @@ const toast = useToast();
 // 响应式数据
 const sidebarVisible = ref(true);
 const currentEnv = ref('dev');
+const hasPermission = computed(() => {
+    return true;
+});
 
 // 环境选项
 const environments = [
